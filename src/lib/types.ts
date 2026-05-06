@@ -4,6 +4,7 @@ export type SessionStatus =
   | "checkpoint_1_pending"
   | "checkpoint_2_pending"
   | "reviewer_blocked"
+  /** @deprecated No longer entered by new sessions. Retained for back-compat with existing DB rows. */
   | "field_editor_pending"
   | "checkpoint_3_pending"
   | "completed"
@@ -51,23 +52,43 @@ export interface SessionCreateResponse {
   status: SessionStatus;
 }
 
+// ── Review findings ───────────────────────────────────────────────────────────
+
+/** "pipeline" = field_editor can fix by rewriting; "human" = recruiter must act */
+export type Solvability = "pipeline" | "human";
+
 export interface HighSeverityIssue {
+  /** Machine-readable dot-path into CVData for the flagged field */
+  path?: string;
+  /** Human-readable label for UI display */
   field?: string;
   issue?: string;
   recommendation?: string;
+  /** Added by the content_reviewer migration — may be absent on older sessions */
+  solvability?: Solvability;
+  _injected_by_postprocessing?: boolean;
+}
+
+export interface LowSeverityIssue {
+  path?: string;
+  field?: string;
+  issue?: string;
+  original?: string;
+  fixed?: string;
+  solvability?: Solvability;
 }
 
 export interface ReviewResponse {
   session_id: string;
   high_severity: HighSeverityIssue[];
-  low_severity: Array<{ field?: string; issue?: string; original?: string; fixed?: string }>;
+  low_severity: LowSeverityIssue[];
   passed: boolean;
   generation_warnings: string[];
 }
 
 export interface ReviewData {
   high_severity: HighSeverityIssue[];
-  low_severity: Array<{ field?: string; issue?: string; original?: string; fixed?: string }>;
+  low_severity: LowSeverityIssue[];
   passed: boolean;
 }
 
@@ -87,6 +108,21 @@ export interface TorPoolSelectionResponse {
   message: string;
 }
 
+// ── Generated fields (format-specific bullets) ───────────────────────────────
+
+export interface GeneratedField {
+  field_key: string;
+  content: string;
+  source?: "tor" | "generated" | string;
+  [k: string]: unknown;
+}
+
+/** Narrow view of cv_data that exposes generated_fields typed. */
+export interface CVDataLite {
+  generated_fields?: GeneratedField[];
+  [k: string]: unknown;
+}
+
 // ── Field editor ──────────────────────────────────────────────────────────────
 
 export interface FieldEditItem {
@@ -97,14 +133,25 @@ export interface FieldEditItem {
 export interface FieldEditResponse {
   session_id: string;
   status: SessionStatus;
+  /** Round number after increment — present in the backend response */
+  round: number;
   applied: string[];
   skipped: string[];
   message: string;
 }
 
+// ── Composite cell types (used by DocxViewer / FieldSelectorTooltip) ─────────
+
+export interface CompositeCellOption {
+  label: string;
+  dotPath: string;
+}
+
+// ── Output response ───────────────────────────────────────────────────────────
+
 export interface OutputResponse {
   session_id: string;
-  cv_data: Record<string, unknown>;
+  cv_data: CVDataLite;
   generation_warnings: string[];
   review: ReviewData | null;
   compression: Record<string, unknown> | null;

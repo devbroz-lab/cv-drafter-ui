@@ -5,26 +5,32 @@
  *
  * "reference" (default) — used at `completed` status with output.docx.
  *   Each click appends a structural locator + comment to a reference list.
- *   "Copy all as JSON" exports [{locator, comment}] for the future XML-level
- *   chat agent.
+ *   "Copy all as JSON" exports [{locator, comment}] for archival / export.
  *
- * "field_editor" — used at `field_editor_pending` status with preview.docx.
- *   Each click resolves the locator to a CVData dot-path via locatorToDotPath()
- *   and appends a FieldEditItem ({field_path, instruction}) to an edit list.
- *   The parent component reads the edit list via the `onEditsChange` callback
- *   for submission to POST /sessions/{id}/field-edit.
+ * "field_editor" — used at `completed` status with output.docx for editing.
+ *   Clicking a cell or paragraph opens a FieldSelectorTooltip:
+ *     - Composite cells: user picks which field, then types an instruction.
+ *     - Simple cells: tooltip skips straight to the instruction input.
+ *     - tasks_assigned cells (WB only): path resolved at runtime from
+ *       cv_data.generated_fields via resolveTasksAssignedPath().
+ *   Confirmed entries are collected in the fieldEdits batch, exposed via
+ *   onEditsChange callback.
  *
  * Loading sources:
- *   docxUrl    — public Supabase signed URL (output.docx, no auth needed)
- *   docxBuffer — pre-fetched ArrayBuffer (preview.docx, auth handled by caller)
+ *   docxUrl    — public Supabase signed URL (no auth needed, fetched inline)
+ *   docxBuffer — pre-fetched ArrayBuffer (caller handles auth)
  */
 
 import JSZip from "jszip";
 import { useCallback, useEffect, useState } from "react";
 
-import type { FieldEditItem, TargetFormat } from "../lib/types";
-import { locatorToDotPath } from "../lib/utils/locatorToDotPath";
+import type { CVDataLite, CompositeCellOption, FieldEditItem, TargetFormat } from "../lib/types";
+import {
+  locatorToDotPath,
+  resolveTasksAssignedPath,
+} from "../lib/utils/locatorToDotPath";
 import type { Locator as UtilLocator } from "../lib/utils/locatorToDotPath";
+import { FieldSelectorTooltip } from "./FieldSelectorTooltip";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,6 +67,15 @@ type FieldEditEntry = {
   instruction: string;
 };
 
+type TooltipState = {
+  anchorX: number;
+  anchorY: number;
+  cellLabel: string;
+  options: CompositeCellOption[];
+  /** For tasks_assigned cells that need a resolved path injected back */
+  resolvedSinglePath?: string;
+};
+
 // GIZ table index → human-readable section name (for display hints)
 const GIZ_TABLE_LABELS: Record<number, string> = {
   0: "Header / Personal Info",
@@ -69,6 +84,13 @@ const GIZ_TABLE_LABELS: Record<number, string> = {
   3: "Skills / Membership",
   4: "Countries of Experience",
   5: "Relevant Projects",
+};
+
+const WB_TABLE_LABELS: Record<number, string> = {
+  0: "Education",
+  1: "Languages",
+  2: "Employment Record",
+  3: "Relevant Projects",
 };
 
 // ---------------------------------------------------------------------------
@@ -159,11 +181,13 @@ function ReferenceItem({
   index,
   onCommentChange,
   onRemove,
+  tableLabels,
 }: {
   reference: Reference;
   index: number;
   onCommentChange: (id: string, comment: string) => void;
   onRemove: (id: string) => void;
+  tableLabels: Record<number, string>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const loc = reference.locator;
@@ -174,7 +198,7 @@ function ReferenceItem({
       </span>
     ) : (
       <span className="rounded bg-purple-900/50 px-1.5 py-0.5 text-[10px] font-medium text-purple-300">
-        {GIZ_TABLE_LABELS[loc.table_index] ?? `tbl.${loc.table_index}`} r{loc.row_index}c{loc.cell_index}
+        {tableLabels[loc.table_index] ?? `tbl.${loc.table_index}`} r{loc.row_index}c{loc.cell_index}
       </span>
     );
   const snippet = loc.text_content.length > 80 ? loc.text_content.slice(0, 80) + "…" : loc.text_content;
@@ -200,7 +224,7 @@ function ReferenceItem({
       <textarea
         className="mt-2 w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-[11px] text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
         rows={2}
-        placeholder="Add a comment for the edit agent…"
+        placeholder="Add a comment…"
         value={reference.comment}
         onChange={(e) => onCommentChange(reference.id, e.target.value)}
       />
@@ -216,13 +240,11 @@ function FieldEditEntryItem({
   entry,
   index,
   onInstructionChange,
-  onDotPathChange,
   onRemove,
 }: {
   entry: FieldEditEntry;
   index: number;
   onInstructionChange: (id: string, instruction: string) => void;
-  onDotPathChange: (id: string, dotPath: string) => void;
   onRemove: (id: string) => void;
 }) {
   const snippet = entry.locator.text_content.length > 60
@@ -235,36 +257,25 @@ function FieldEditEntryItem({
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-medium text-[var(--color-text-muted)]">Edit #{index + 1}</span>
           {entry.confidence === "mapped" ? (
-            <span className="rounded bg-emerald-950/60 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
-              auto-mapped
-            </span>
+            <span className="rounded bg-emerald-950/60 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">mapped</span>
           ) : (
-            <span className="rounded bg-amber-950/60 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
-              verify path
-            </span>
+            <span className="rounded bg-amber-950/60 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">verify path</span>
           )}
         </div>
         <button type="button" onClick={() => onRemove(entry.id)} className="shrink-0 text-[var(--color-text-muted)] hover:text-red-300">×</button>
       </div>
 
-      <p className="text-[var(--color-text-muted)] italic">{snippet || "(empty)"}</p>
+      <p className="italic text-[var(--color-text-muted)]">{snippet || "(empty)"}</p>
 
       <div>
-        <label className="mb-1 block text-[10px] font-medium text-[var(--color-text-muted)]">
-          CVData field path {entry.confidence === "fallback" && <span className="text-amber-300">— please verify</span>}
-        </label>
-        <input
-          type="text"
-          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 font-mono text-[11px] text-[var(--color-accent)] outline-none focus:border-[var(--color-accent)]"
-          value={entry.dotPath}
-          onChange={(e) => onDotPathChange(entry.id, e.target.value)}
-          placeholder="e.g. relevant_projects.2.location"
-        />
+        <p className="mb-0.5 text-[10px] font-medium text-[var(--color-text-muted)]">Field</p>
+        <p className="font-medium text-[var(--color-text)]">{entry.label}</p>
+        <code className="text-[10px] text-[var(--color-accent)]">{entry.dotPath}</code>
       </div>
 
       <div>
         <label className="mb-1 block text-[10px] font-medium text-[var(--color-text-muted)]">
-          Instruction for the edit agent
+          Instruction
         </label>
         <textarea
           className="w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-[11px] text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
@@ -285,6 +296,11 @@ function FieldEditEntryItem({
 interface DocxViewerBaseProps {
   onClose: () => void;
   targetFormat?: TargetFormat;
+  /**
+   * Passed in field_editor mode so the viewer can resolve tasks_assigned
+   * (WB Table 3 cell 0) paths via resolveTasksAssignedPath().
+   */
+  cvData?: CVDataLite;
 }
 
 interface DocxViewerUrlProps extends DocxViewerBaseProps {
@@ -299,6 +315,13 @@ interface DocxViewerBufferReferenceProps extends DocxViewerBaseProps {
   mode?: "reference";
 }
 
+interface DocxViewerUrlFieldEditorProps extends DocxViewerBaseProps {
+  docxUrl: string;
+  docxBuffer?: never;
+  mode: "field_editor";
+  onEditsChange: (edits: FieldEditItem[]) => void;
+}
+
 interface DocxViewerBufferFieldEditorProps extends DocxViewerBaseProps {
   docxBuffer: ArrayBuffer;
   docxUrl?: never;
@@ -309,10 +332,11 @@ interface DocxViewerBufferFieldEditorProps extends DocxViewerBaseProps {
 type DocxViewerProps =
   | DocxViewerUrlProps
   | DocxViewerBufferReferenceProps
+  | DocxViewerUrlFieldEditorProps
   | DocxViewerBufferFieldEditorProps;
 
 export function DocxViewer(props: DocxViewerProps) {
-  const { onClose, targetFormat = "giz" } = props;
+  const { onClose, targetFormat = "giz", cvData } = props;
   const mode = props.mode ?? "reference";
 
   const [blocks, setBlocks] = useState<ParsedBlock[]>([]);
@@ -325,6 +349,9 @@ export function DocxViewer(props: DocxViewerProps) {
 
   // Field editor mode state
   const [fieldEdits, setFieldEdits] = useState<FieldEditEntry[]>([]);
+  const [tooltipState, setTooltipState] = useState<TooltipState | null>(null);
+
+  const tableLabels = targetFormat === "giz" ? GIZ_TABLE_LABELS : WB_TABLE_LABELS;
 
   const referencedKeys = new Set([
     ...references.map((r) => {
@@ -349,7 +376,7 @@ export function DocxViewer(props: DocxViewerProps) {
         if (props.docxBuffer !== undefined) {
           ab = props.docxBuffer;
         } else {
-          const res = await fetch((props as DocxViewerUrlProps).docxUrl);
+          const res = await fetch((props as DocxViewerUrlProps | DocxViewerUrlFieldEditorProps).docxUrl);
           if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
           ab = await res.arrayBuffer();
         }
@@ -364,60 +391,123 @@ export function DocxViewer(props: DocxViewerProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const addLocator = useCallback((locator: Locator) => {
-    if (mode === "field_editor") {
-      if (fieldEdits.length >= 5) return; // max 5 edits
+  // Notify parent when edits change.
+  const notifyEditsChange = useCallback((edits: FieldEditEntry[]) => {
+    if (props.mode === "field_editor") {
+      props.onEditsChange(edits.map((e) => ({ field_path: e.dotPath, instruction: e.instruction })));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props]);
+
+  // ---------------------------------------------------------------------------
+  // Cell/paragraph click handler
+  // ---------------------------------------------------------------------------
+
+  const handleLocatorClick = useCallback(
+    (locator: Locator, mouseEvent: React.MouseEvent) => {
+      if (mode !== "field_editor") {
+        // Reference mode — append directly
+        setReferences((prev) => [...prev, { id: crypto.randomUUID(), locator, comment: "" }]);
+        return;
+      }
+
+      if (fieldEdits.length >= 5) return;
+
       const result = locatorToDotPath(locator as UtilLocator, targetFormat);
+
+      let tooltipOptions: CompositeCellOption[];
+      let cellLabel = result.label;
+
+      if (result.kind === "tasks_assigned") {
+        // WB tasks_assigned — resolve path from generated_fields at runtime
+        const resolvedPath = resolveTasksAssignedPath(
+          cvData?.generated_fields,
+          result.projectIndex,
+        );
+        if (!resolvedPath) {
+          // Cannot resolve — non-editable cell, show nothing
+          return;
+        }
+        tooltipOptions = [{ label: "Assigned Tasks (detailed_tasks)", dotPath: resolvedPath }];
+      } else if (result.kind === "composite") {
+        tooltipOptions = result.options;
+      } else {
+        // Simple cell — single option, tooltip skips selector step
+        tooltipOptions = [{ label: result.label, dotPath: result.dotPath }];
+      }
+
+      if (tooltipOptions.length === 0) return;
+
+      setTooltipState({
+        anchorX: mouseEvent.clientX,
+        anchorY: mouseEvent.clientY,
+        cellLabel,
+        options: tooltipOptions,
+      });
+    },
+    [mode, fieldEdits.length, targetFormat, cvData],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Tooltip add / cancel handlers
+  // ---------------------------------------------------------------------------
+
+  const handleTooltipAdd = useCallback(
+    (entry: { dotPath: string; instruction: string; locatorLabel: string }) => {
+      // We need to find the locator that triggered the tooltip. We'll use a
+      // ref-like approach: store the last-clicked locator alongside tooltip state.
+      // Since setTooltipState is called synchronously in handleLocatorClick, we
+      // can grab it from state with a small indirection.
+      //
+      // Simplest approach: store the locator in tooltipState as well.
+      setTooltipState(null);
+
+      // Build the edit entry. The locator is not stored in tooltipState currently;
+      // create a synthetic paragraph-0 locator as placeholder since the dot-path
+      // is the authoritative source — the locator is only used for the display
+      // key and the cell highlight in the viewer.
       const newEntry: FieldEditEntry = {
         id: crypto.randomUUID(),
-        locator,
-        dotPath: result.dotPath,
-        confidence: result.confidence,
-        label: result.label,
-        instruction: "",
+        locator: { location: "paragraph", paragraph_index: -1, text_content: entry.locatorLabel },
+        dotPath: entry.dotPath,
+        confidence: "mapped",
+        label: entry.locatorLabel,
+        instruction: entry.instruction,
       };
       const next = [...fieldEdits, newEntry];
       setFieldEdits(next);
-      if (props.mode === "field_editor") {
-        props.onEditsChange(next.map((e) => ({ field_path: e.dotPath, instruction: e.instruction })));
-      }
-    } else {
-      setReferences((prev) => [...prev, { id: crypto.randomUUID(), locator, comment: "" }]);
-    }
-  }, [mode, fieldEdits, targetFormat, props]);
+      notifyEditsChange(next);
+    },
+    [fieldEdits, notifyEditsChange],
+  );
 
-  const updateFieldEditInstruction = useCallback((id: string, instruction: string) => {
+  const handleTooltipCancel = useCallback(() => {
+    setTooltipState(null);
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Edit list mutation handlers
+  // ---------------------------------------------------------------------------
+
+  const updateInstruction = useCallback((id: string, instruction: string) => {
     setFieldEdits((prev) => {
       const next = prev.map((e) => e.id === id ? { ...e, instruction } : e);
-      if (props.mode === "field_editor") {
-        props.onEditsChange(next.map((e) => ({ field_path: e.dotPath, instruction: e.instruction })));
-      }
+      notifyEditsChange(next);
       return next;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props]);
-
-  const updateFieldEditDotPath = useCallback((id: string, dotPath: string) => {
-    setFieldEdits((prev) => {
-      const next = prev.map((e) => e.id === id ? { ...e, dotPath } : e);
-      if (props.mode === "field_editor") {
-        props.onEditsChange(next.map((e) => ({ field_path: e.dotPath, instruction: e.instruction })));
-      }
-      return next;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props]);
+  }, [notifyEditsChange]);
 
   const removeFieldEdit = useCallback((id: string) => {
     setFieldEdits((prev) => {
       const next = prev.filter((e) => e.id !== id);
-      if (props.mode === "field_editor") {
-        props.onEditsChange(next.map((e) => ({ field_path: e.dotPath, instruction: e.instruction })));
-      }
+      notifyEditsChange(next);
       return next;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props]);
+  }, [notifyEditsChange]);
+
+  // ---------------------------------------------------------------------------
+  // Reference mode handlers
+  // ---------------------------------------------------------------------------
 
   const updateComment = useCallback((id: string, comment: string) => {
     setReferences((prev) => prev.map((r) => r.id === id ? { ...r, comment } : r));
@@ -434,6 +524,20 @@ export function DocxViewer(props: DocxViewerProps) {
     setTimeout(() => setCopiedAll(false), 2000);
   }, [references]);
 
+  // ---------------------------------------------------------------------------
+  // Helpers for composite cell highlighting
+  // ---------------------------------------------------------------------------
+
+  /** Returns true if the cell is composite (to show the ▾ indicator) */
+  function isCellComposite(tableIndex: number, rowIndex: number, cellIndex: number): boolean {
+    if (rowIndex === 0) return false;
+    const result = locatorToDotPath(
+      { location: "table", table_index: tableIndex, row_index: rowIndex, cell_index: cellIndex, text_content: "" },
+      targetFormat,
+    );
+    return result.kind === "composite" || result.kind === "tasks_assigned";
+  }
+
   const rightPanelTitle = mode === "field_editor"
     ? `Edits (${fieldEdits.length}/5)`
     : `References (${references.length})`;
@@ -443,164 +547,242 @@ export function DocxViewer(props: DocxViewerProps) {
     : "Click any paragraph or cell to capture a reference.";
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 z-50 flex min-w-[480px] flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl" style={{ width: "55vw" }}>
-      {/* Header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
-        <div>
-          <span className="text-sm font-semibold text-[var(--color-text)]">
-            {mode === "field_editor" ? "Preview Document" : "Document Viewer"}
-          </span>
-          {mode === "field_editor" && (
-            <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
-              Click content to add targeted edits — up to 5 total
-            </p>
-          )}
+    <>
+      <div
+        className="fixed right-0 top-0 bottom-0 z-50 flex min-w-[480px] flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl"
+        style={{ width: "55vw" }}
+      >
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
+          <div>
+            <span className="text-sm font-semibold text-[var(--color-text)]">
+              {mode === "field_editor" ? "Edit Document" : "Document Viewer"}
+            </span>
+            {mode === "field_editor" && (
+              <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
+                Click any field to add an edit instruction — up to 5 total
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
+          >
+            Close
+          </button>
         </div>
-        <button type="button" onClick={onClose} className="rounded-lg px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]">
-          Close
-        </button>
-      </div>
 
-      {/* Body */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Document pane */}
-        <div className="min-w-0 flex-1 overflow-y-auto bg-white px-8 py-6">
-          {loading && (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-sm text-gray-400">Loading document…</p>
-            </div>
-          )}
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <strong>Failed to load document:</strong> {error}
-            </div>
-          )}
-          {!loading && !error && (
-            <div className="mx-auto max-w-2xl space-y-1">
-              {blocks.map((block) => {
-                if (block.kind === "paragraph") {
-                  if (!block.text.trim()) return null;
-                  const key = `p-${block.paragraphIndex}`;
-                  const isReferenced = referencedKeys.has(key);
+        {/* Body */}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {/* Document pane */}
+          <div className="min-w-0 flex-1 overflow-y-auto bg-white px-8 py-6">
+            {loading && (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-sm text-gray-400">Loading document…</p>
+              </div>
+            )}
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <strong>Failed to load document:</strong> {error}
+              </div>
+            )}
+            {!loading && !error && (
+              <div className="mx-auto max-w-2xl space-y-1">
+                {blocks.map((block) => {
+                  if (block.kind === "paragraph") {
+                    if (!block.text.trim()) return null;
+                    const key = `p-${block.paragraphIndex}`;
+                    const isReferenced = referencedKeys.has(key);
+                    const atMax = mode === "field_editor" && fieldEdits.length >= 5;
+                    return (
+                      <div
+                        key={key}
+                        onClick={(e) =>
+                          !atMax &&
+                          handleLocatorClick(
+                            { location: "paragraph", paragraph_index: block.paragraphIndex, text_content: block.text },
+                            e,
+                          )
+                        }
+                        className={[
+                          "rounded px-3 py-2 text-sm leading-relaxed text-gray-800 transition-all border-l-4",
+                          atMax && !isReferenced
+                            ? "cursor-not-allowed opacity-50 border-transparent bg-gray-50"
+                            : "cursor-pointer hover:border-blue-400 hover:bg-blue-50",
+                          isReferenced ? "border-[#d97757] bg-orange-50" : "border-transparent bg-gray-50",
+                        ].join(" ")}
+                        title={
+                          atMax && !isReferenced
+                            ? "Maximum 5 edits reached"
+                            : `Click to ${mode === "field_editor" ? "add edit" : "reference"}`
+                        }
+                      >
+                        {block.text}
+                      </div>
+                    );
+                  }
+
                   const atMax = mode === "field_editor" && fieldEdits.length >= 5;
                   return (
-                    <div
-                      key={key}
-                      onClick={() => !atMax && addLocator({ location: "paragraph", paragraph_index: block.paragraphIndex, text_content: block.text })}
-                      className={[
-                        "rounded px-3 py-2 text-sm leading-relaxed text-gray-800 transition-all border-l-4",
-                        atMax && !isReferenced ? "cursor-not-allowed opacity-50 border-transparent bg-gray-50" : "cursor-pointer hover:border-blue-400 hover:bg-blue-50",
-                        isReferenced ? "border-[#d97757] bg-orange-50" : "border-transparent bg-gray-50",
-                      ].join(" ")}
-                      title={atMax && !isReferenced ? "Maximum 5 edits reached" : `Click to ${mode === "field_editor" ? "add edit" : "reference"}`}
-                    >
-                      {block.text}
+                    <div key={`t-${block.tableIndex}`} className="my-4 overflow-x-auto rounded border border-gray-200 bg-gray-50 p-2">
+                      <table className="w-full border-collapse text-xs text-gray-800">
+                        <tbody>
+                          {block.rows.map((row) => (
+                            <tr key={row.rowIndex}>
+                              {row.cells.map((cell) => {
+                                const key = `t-${block.tableIndex}-${row.rowIndex}-${cell.cellIndex}`;
+                                const isReferenced = referencedKeys.has(key);
+                                const composite = mode === "field_editor" &&
+                                  isCellComposite(block.tableIndex, row.rowIndex, cell.cellIndex);
+
+                                return (
+                                  <td
+                                    key={cell.cellIndex}
+                                    onClick={(e) =>
+                                      !atMax &&
+                                      handleLocatorClick(
+                                        {
+                                          location: "table",
+                                          table_index: block.tableIndex,
+                                          row_index: row.rowIndex,
+                                          cell_index: cell.cellIndex,
+                                          text_content: cell.text,
+                                        },
+                                        e,
+                                      )
+                                    }
+                                    className={[
+                                      "border border-gray-200 px-2 py-1.5 transition-all relative",
+                                      atMax && !isReferenced
+                                        ? "cursor-not-allowed opacity-50"
+                                        : "cursor-pointer hover:bg-blue-50 hover:outline hover:outline-1 hover:outline-blue-400",
+                                      isReferenced ? "bg-orange-50 outline outline-1 outline-[#d97757]" : "",
+                                    ].join(" ")}
+                                    title={
+                                      `${tableLabels[block.tableIndex] ?? `Table ${block.tableIndex}`} · r${row.rowIndex}c${cell.cellIndex}` +
+                                      (composite ? " — click to choose field" : "")
+                                    }
+                                  >
+                                    {cell.text || <span className="italic text-gray-300">empty</span>}
+                                    {/* Composite indicator */}
+                                    {composite && mode === "field_editor" && (
+                                      <span
+                                        className="absolute top-0.5 right-0.5 text-[8px] text-blue-400 leading-none select-none"
+                                        aria-hidden="true"
+                                      >
+                                        ▾
+                                      </span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   );
-                }
-
-                const atMax = mode === "field_editor" && fieldEdits.length >= 5;
-                return (
-                  <div key={`t-${block.tableIndex}`} className="my-4 overflow-x-auto rounded border border-gray-200 bg-gray-50 p-2">
-                    <table className="w-full border-collapse text-xs text-gray-800">
-                      <tbody>
-                        {block.rows.map((row) => (
-                          <tr key={row.rowIndex}>
-                            {row.cells.map((cell) => {
-                              const key = `t-${block.tableIndex}-${row.rowIndex}-${cell.cellIndex}`;
-                              const isReferenced = referencedKeys.has(key);
-                              return (
-                                <td
-                                  key={cell.cellIndex}
-                                  onClick={() => !atMax && addLocator({ location: "table", table_index: block.tableIndex, row_index: row.rowIndex, cell_index: cell.cellIndex, text_content: cell.text })}
-                                  className={[
-                                    "border border-gray-200 px-2 py-1.5 transition-all",
-                                    atMax && !isReferenced ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-blue-50 hover:outline hover:outline-1 hover:outline-blue-400",
-                                    isReferenced ? "bg-orange-50 outline outline-1 outline-[#d97757]" : "",
-                                  ].join(" ")}
-                                  title={`${GIZ_TABLE_LABELS[block.tableIndex] ?? `Table ${block.tableIndex}`} · r${row.rowIndex}c${cell.cellIndex}`}
-                                >
-                                  {cell.text || <span className="italic text-gray-300">empty</span>}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Right panel */}
-        <div className="flex w-64 shrink-0 flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)]">
-          <div className="shrink-0 border-b border-[var(--color-border)] px-4 py-3">
-            <p className="text-xs font-semibold text-[var(--color-text)]">{rightPanelTitle}</p>
-            <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">{rightPanelEmpty}</p>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {mode === "field_editor" ? (
-              fieldEdits.length === 0 ? (
-                <p className="mt-8 text-center text-xs italic text-[var(--color-text-muted)]">
-                  No edits yet.
-                  <br />Click content to add.
-                </p>
-              ) : (
-                fieldEdits.map((entry, i) => (
-                  <FieldEditEntryItem
-                    key={entry.id}
-                    entry={entry}
-                    index={i}
-                    onInstructionChange={updateFieldEditInstruction}
-                    onDotPathChange={updateFieldEditDotPath}
-                    onRemove={removeFieldEdit}
-                  />
-                ))
-              )
-            ) : (
-              references.length === 0 ? (
-                <p className="mt-8 text-center text-xs italic text-[var(--color-text-muted)]">
-                  No references yet.
-                  <br />Click content in the document to add.
-                </p>
-              ) : (
-                references.map((ref, i) => (
-                  <ReferenceItem
-                    key={ref.id}
-                    reference={ref}
-                    index={i}
-                    onCommentChange={updateComment}
-                    onRemove={removeReference}
-                  />
-                ))
-              )
+                })}
+              </div>
             )}
           </div>
 
-          {/* Footer actions */}
-          {mode === "reference" && references.length > 0 && (
-            <div className="shrink-0 border-t border-[var(--color-border)] p-3 space-y-2">
-              <button type="button" onClick={() => void copyAllJson()} className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-xs font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] transition-colors">
-                {copiedAll ? "Copied!" : "Copy all as JSON"}
-              </button>
-              <button type="button" onClick={() => setReferences([])} className="w-full rounded-xl px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-red-300 transition-colors">
-                Clear all
-              </button>
+          {/* Right panel */}
+          <div className="flex w-64 shrink-0 flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)]">
+            <div className="shrink-0 border-b border-[var(--color-border)] px-4 py-3">
+              <p className="text-xs font-semibold text-[var(--color-text)]">{rightPanelTitle}</p>
+              <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">{rightPanelEmpty}</p>
             </div>
-          )}
-          {mode === "field_editor" && fieldEdits.length > 0 && (
-            <div className="shrink-0 border-t border-[var(--color-border)] p-3">
-              <button type="button" onClick={() => { setFieldEdits([]); if (props.mode === "field_editor") props.onEditsChange([]); }} className="w-full rounded-xl px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-red-300 transition-colors">
-                Clear all edits
-              </button>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {mode === "field_editor" ? (
+                fieldEdits.length === 0 ? (
+                  <p className="mt-8 text-center text-xs italic text-[var(--color-text-muted)]">
+                    No edits yet.
+                    <br />Click content to add.
+                  </p>
+                ) : (
+                  fieldEdits.map((entry, i) => (
+                    <FieldEditEntryItem
+                      key={entry.id}
+                      entry={entry}
+                      index={i}
+                      onInstructionChange={updateInstruction}
+                      onRemove={removeFieldEdit}
+                    />
+                  ))
+                )
+              ) : (
+                references.length === 0 ? (
+                  <p className="mt-8 text-center text-xs italic text-[var(--color-text-muted)]">
+                    No references yet.
+                    <br />Click content in the document to add.
+                  </p>
+                ) : (
+                  references.map((ref, i) => (
+                    <ReferenceItem
+                      key={ref.id}
+                      reference={ref}
+                      index={i}
+                      onCommentChange={updateComment}
+                      onRemove={removeReference}
+                      tableLabels={tableLabels}
+                    />
+                  ))
+                )
+              )}
             </div>
-          )}
+
+            {/* Footer actions */}
+            {mode === "reference" && references.length > 0 && (
+              <div className="shrink-0 border-t border-[var(--color-border)] p-3 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => void copyAllJson()}
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-xs font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] transition-colors"
+                >
+                  {copiedAll ? "Copied!" : "Copy all as JSON"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReferences([])}
+                  className="w-full rounded-xl px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-red-300 transition-colors"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+            {mode === "field_editor" && fieldEdits.length > 0 && (
+              <div className="shrink-0 border-t border-[var(--color-border)] p-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFieldEdits([]);
+                    notifyEditsChange([]);
+                  }}
+                  className="w-full rounded-xl px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-red-300 transition-colors"
+                >
+                  Clear all edits
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Tooltip — rendered as portal outside the viewer */}
+      {tooltipState && mode === "field_editor" && (
+        <FieldSelectorTooltip
+          anchorX={tooltipState.anchorX}
+          anchorY={tooltipState.anchorY}
+          cellLabel={tooltipState.cellLabel}
+          options={tooltipState.options}
+          batchSize={fieldEdits.length}
+          onAdd={handleTooltipAdd}
+          onCancel={handleTooltipCancel}
+        />
+      )}
+    </>
   );
 }

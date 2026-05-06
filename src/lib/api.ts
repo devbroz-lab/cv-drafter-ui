@@ -180,6 +180,11 @@ export async function getOutputDownloadUrl(
   return res.json() as Promise<{ signed_url: string; expires_in: number }>;
 }
 
+/**
+ * @deprecated Use submitFieldEdits() instead. POST /comments is deprecated on
+ * the backend and will be removed in a future release. The backend still accepts
+ * it but returns Deprecation response headers.
+ */
 export async function submitComment(token: string, sessionId: string, comment: string): Promise<unknown> {
   const res = await authorizedFetch(
     `/sessions/${sessionId}/comments`,
@@ -251,23 +256,6 @@ export async function submitFieldEdits(
     token,
   );
   return res.json() as Promise<FieldEditResponse>;
-}
-
-/**
- * Fetch preview.docx as an ArrayBuffer using the authenticated backend endpoint.
- * preview.docx is never uploaded to Supabase Storage — it is streamed directly
- * from the local run directory by GET /sessions/{id}/files/preview.
- */
-export async function getPreviewDocxBuffer(
-  token: string,
-  sessionId: string,
-): Promise<ArrayBuffer> {
-  const res = await authorizedFetch(
-    `/sessions/${sessionId}/files/preview`,
-    { method: "GET" },
-    token,
-  );
-  return res.arrayBuffer();
 }
 
 export function formatApiError(e: unknown): string {
