@@ -6,8 +6,9 @@ import { Card } from "../components/ui";
 
 export function SettingsPage() {
   const { user, session } = useAuth();
-  const configured = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+  const authConfigured = !!import.meta.env.VITE_AUTH_API_BASE_URL;
   const apiBase = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+  const authBase = import.meta.env.VITE_AUTH_API_BASE_URL || "http://127.0.0.1:8000/auth";
 
   const health = useQuery({
     queryKey: ["health"],
@@ -25,16 +26,17 @@ export function SettingsPage() {
       </div>
 
       <Card>
-        <h2 className="text-sm font-semibold text-[var(--color-text)]">Supabase Auth</h2>
+        <h2 className="text-sm font-semibold text-[var(--color-text)]">Authentication</h2>
         <ul className="mt-3 space-y-2 text-sm text-[var(--color-text-muted)]">
           <li>
             Env configured:{" "}
-            <span className={configured ? "text-emerald-400" : "text-red-400"}>
-              {configured ? "yes" : "missing VITE_* keys"}
+            <span className={authConfigured ? "text-emerald-400" : "text-red-400"}>
+              {authConfigured ? "yes" : "missing VITE_AUTH_API_BASE_URL"}
             </span>
           </li>
+          <li>Auth base URL: {authBase}</li>
           <li>Logged in user: {user?.email ?? "—"}</li>
-          <li>Access token refresh at: {session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : "—"}</li>
+          <li>Refresh token available: {session?.refreshToken ? "yes" : "—"}</li>
         </ul>
       </Card>
 

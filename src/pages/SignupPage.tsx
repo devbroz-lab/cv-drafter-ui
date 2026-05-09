@@ -20,10 +20,8 @@ export function SignupPage() {
     setBusy(true);
     try {
       await signUp(email, password);
-      toast(
-        "Check your email to confirm your account (if your Supabase project requires email confirmation).",
-      );
-      navigate("/login", { replace: true });
+      toast("Account created.");
+      navigate("/", { replace: true });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       toast(msg, "error");
@@ -38,7 +36,7 @@ export function SignupPage() {
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-semibold text-[var(--color-text)]">Create account</h1>
           <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            Uses Supabase Auth in your project. Only the anon key ships to the browser.
+            Create your account to start and manage CV drafting sessions.
           </p>
         </div>
         <Card>

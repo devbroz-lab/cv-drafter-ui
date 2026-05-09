@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import clsx from "clsx";
 
@@ -14,6 +14,8 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 export function AppShell() {
   const { signOut } = useAuth();
+  const location = useLocation();
+  const isSessionWorkspace = /^\/sessions\/[^/]+$/.test(location.pathname);
 
   return (
     <div className="flex min-h-screen">
@@ -41,8 +43,8 @@ export function AppShell() {
           </Button>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 bg-[var(--color-bg)] p-8">
-        <div className="mx-auto max-w-3xl">
+      <main className={clsx("min-w-0 flex-1 bg-[var(--color-bg)]", isSessionWorkspace ? "p-4 lg:p-6" : "p-8")}>
+        <div className={clsx("mx-auto", isSessionWorkspace ? "max-w-none" : "max-w-3xl")}>
           <Outlet />
         </div>
       </main>

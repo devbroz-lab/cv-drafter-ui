@@ -11,6 +11,8 @@ import {
   getOutput,
   getOutputDownloadUrl,
   getSessionStatus,
+  getTorPools,
+  selectTorPool,
   submitFieldEdits,
 } from "../lib/api";
 import { upsertRecentSession } from "../lib/recentSessions";
@@ -24,7 +26,6 @@ import type {
 } from "../lib/types";
 
 import { DocxViewer } from "../components/DocxViewer";
-import { TorPoolPicker } from "../components/TorPoolPicker";
 import { Button, Card } from "../components/ui";
 
 // ---------------------------------------------------------------------------
@@ -36,6 +37,30 @@ function pollMs(status: SessionStatus | undefined): number | false {
   if (status === "completed" || status === "failed") return false;
   return 2500;
 }
+
+function progressForStatus(status: SessionStatus | undefined): number {
+  switch (status) {
+    case "queued":
+      return 8;
+    case "processing":
+      return 35;
+    case "checkpoint_1_pending":
+      return 52;
+    case "checkpoint_2_pending":
+      return 68;
+    case "checkpoint_3_pending":
+      return 84;
+    case "completed":
+      return 100;
+    case "failed":
+      return 100;
+    default:
+      return 12;
+  }
+}
+
+/** Notes persisted with auto-approved checkpoints (1, 2 & 3 — no manual UI). */
+const AUTO_CP_NOTES = "Auto-approved (checkpoints skipped in UI)";
 
 // ---------------------------------------------------------------------------
 // Main page
@@ -90,23 +115,115 @@ export function SessionWorkspacePage() {
     }
   }, [statusQuery.data]);
 
-  // ── Mutations ──────────────────────────────────────────────────────────────
+  // ── Auto-approve checkpoints 1–3 (skip all manual checkpoint steps) ──────────
 
-  const approveMut = useMutation({
-    mutationFn: (checkpoint: "checkpoint_1" | "checkpoint_2" | "checkpoint_3") =>
-      approveCheckpoint(accessToken!, sessionId, checkpoint, "Approved from web UI"),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
-      void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
-      toast("Checkpoint approved.");
-    },
-    onError: (e) => toast(formatApiError(e), "error"),
-  });
+  useEffect(() => {
+    if (!accessToken || !sessionId || st !== "checkpoint_1_pending") return;
 
-  // ── Checkpoint acknowledgement checkboxes ─────────────────────────────────
+    const ac = new AbortController();
+    let lastErr = "";
 
-  const [c2Ack, setC2Ack] = useState(false);
-  const [c3Ack, setC3Ack] = useState(false);
+    void (async () => {
+      const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+      const maxAttempts = 45;
+
+      for (let attempt = 0; attempt < maxAttempts && !ac.signal.aborted; attempt++) {
+        try {
+          const poolsResp = await getTorPools(accessToken, sessionId);
+          if (ac.signal.aborted) return;
+          const idx =
+            typeof poolsResp.selected_pool_index === "number"
+              ? poolsResp.selected_pool_index
+              : 0;
+          await selectTorPool(accessToken, sessionId, idx);
+          if (ac.signal.aborted) return;
+          await approveCheckpoint(accessToken, sessionId, "checkpoint_1", AUTO_CP_NOTES);
+          void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
+          void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
+          void qc.invalidateQueries({ queryKey: ["torPools", sessionId] });
+          return;
+        } catch (e) {
+          lastErr = formatApiError(e);
+          await wait(2000);
+        }
+      }
+      if (!ac.signal.aborted && lastErr) {
+        toast(
+          `Could not auto-complete checkpoint 1 after several tries: ${lastErr}`,
+          "error",
+        );
+      }
+    })();
+
+    return () => ac.abort();
+  }, [accessToken, qc, sessionId, st, toast]);
+
+  useEffect(() => {
+    if (!accessToken || !sessionId || st !== "checkpoint_2_pending") return;
+
+    const ac = new AbortController();
+    let lastErr = "";
+
+    void (async () => {
+      const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+      const maxAttempts = 30;
+
+      for (let attempt = 0; attempt < maxAttempts && !ac.signal.aborted; attempt++) {
+        try {
+          await approveCheckpoint(accessToken, sessionId, "checkpoint_2", AUTO_CP_NOTES);
+          if (ac.signal.aborted) return;
+          void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
+          void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
+          return;
+        } catch (e) {
+          lastErr = formatApiError(e);
+          await wait(2000);
+        }
+      }
+      if (!ac.signal.aborted && lastErr) {
+        toast(
+          `Could not auto-complete checkpoint 2 after several tries: ${lastErr}`,
+          "error",
+        );
+      }
+    })();
+
+    return () => ac.abort();
+  }, [accessToken, qc, sessionId, st, toast]);
+
+  useEffect(() => {
+    if (!accessToken || !sessionId || st !== "checkpoint_3_pending") return;
+
+    const ac = new AbortController();
+    let lastErr = "";
+
+    void (async () => {
+      const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+      const maxAttempts = 30;
+
+      for (let attempt = 0; attempt < maxAttempts && !ac.signal.aborted; attempt++) {
+        try {
+          await approveCheckpoint(accessToken, sessionId, "checkpoint_3", AUTO_CP_NOTES);
+          if (ac.signal.aborted) return;
+          void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
+          void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
+          void qc.invalidateQueries({ queryKey: ["output", sessionId] });
+          return;
+        } catch (e) {
+          lastErr = formatApiError(e);
+          await wait(2000);
+        }
+      }
+      if (!ac.signal.aborted && lastErr) {
+        toast(
+          `Could not auto-complete checkpoint 3 after several tries: ${lastErr}`,
+          "error",
+        );
+      }
+    })();
+
+    return () => ac.abort();
+  }, [accessToken, qc, sessionId, st, toast]);
 
   // ── Download ───────────────────────────────────────────────────────────────
 
@@ -182,7 +299,7 @@ export function SessionWorkspacePage() {
       setPendingEdits([]);
 
       if (data.skipped.length === 0) {
-        // All edits applied — close viewer, let checkpoint_3 UI take over.
+        // All edits applied — close viewer; rendering continues automatically.
         setShowViewer(false);
         setViewerDocxUrl(null);
         setLastEditResult(null);
@@ -196,24 +313,21 @@ export function SessionWorkspacePage() {
     onError: (e) => toast(formatApiError(e), "error"),
   });
 
-  // "Approve anyway" after partial skips — proceed to checkpoint_3 approval.
+  // After partial skips: dismiss notice on completed (render already ran or will complete).
   const handleApproveAnyway = useCallback(() => {
     setLastEditResult(null);
     setShowViewer(false);
     setViewerDocxUrl(null);
-    void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
-    toast("Proceeding to approval with applied edits.");
-  }, [qc, sessionId, toast]);
+  }, []);
 
-  // "Cancel & re-edit" — close viewer, clear result, stay at checkpoint_3_pending.
-  // User can submit another POST /field-edit batch (backend now accepts
-  // both "completed" and "checkpoint_3_pending").
+  // "Cancel & re-edit" — re-open field editor; submit another /field-edit batch.
   const handleCancelReEdit = useCallback(() => {
+    const applied = lastEditResult?.applied.length ?? 0;
+    const skippedCount = lastEditResult?.skipped.length ?? 0;
     setLastEditResult(null);
-    // Re-open the viewer so the user can submit a corrected batch.
     void openViewer("field_editor");
     toast(
-      `${lastEditResult?.applied.length ?? 0} edits were already applied. Re-editing for the ${lastEditResult?.skipped.length ?? 0} skipped field(s).`,
+      `${applied} edits were already applied. Re-editing for the ${skippedCount} skipped field(s).`,
     );
   }, [lastEditResult, openViewer, toast]);
 
@@ -234,12 +348,10 @@ export function SessionWorkspacePage() {
       </p>
     );
 
-  const pageStyle = showViewer ? { paddingRight: "55vw" } : undefined;
-
   // ── Render ─────────────────────────────────────────────────────────────────
 
   const sessionContent = (
-    <div className="space-y-6" style={pageStyle}>
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       {/* Page header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -258,6 +370,46 @@ export function SessionWorkspacePage() {
           </div>
         </div>
       </div>
+
+      {st !== "completed" && st !== "failed" && (
+        <Card className="space-y-4 border-[var(--color-border)]/80 bg-[var(--color-bg)]/35">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="relative inline-flex h-5 w-5 items-center justify-center">
+                <span className="absolute inline-flex h-5 w-5 animate-ping rounded-full bg-[var(--color-accent)]/30" />
+                <span className="inline-flex h-2.5 w-2.5 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+              </span>
+              <div>
+              <h2 className="text-sm font-semibold text-[var(--color-text)]">Pipeline progress</h2>
+              <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                Processing in background. Status updates every few seconds.
+              </p>
+              </div>
+            </div>
+            <span className="text-xs font-medium text-[var(--color-accent)]">
+              {progressForStatus(st)}%
+            </span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-surface-muted)]">
+            <div
+              className="h-full rounded-full bg-[var(--color-accent)] transition-all duration-700 ease-out"
+              style={{ width: `${progressForStatus(st)}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-xs">
+            <span className="text-[var(--color-text-muted)]">
+              Current stage:{" "}
+              <span className="font-medium text-[var(--color-text)]">
+                {(st ?? "starting").replace(/_/g, " ")}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[var(--color-accent)]">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-accent)]" />
+              Live
+            </span>
+          </div>
+        </Card>
+      )}
 
       {/* Pipeline steps */}
       {manifestQuery.data && (
@@ -288,79 +440,34 @@ export function SessionWorkspacePage() {
           </p>
         </Card>
       )}
+      {(st === "processing" || st?.startsWith("checkpoint_")) &&
+        manifestQuery.isLoading &&
+        !manifestQuery.data && (
+          <Card>
+            <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+              <span className="inline-flex h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+              Loading detailed pipeline steps…
+            </div>
+          </Card>
+        )}
 
-      {/* Checkpoint 1 — includes ToR pool selection */}
-      {st === "checkpoint_1_pending" && (
-        <Card>
-          <h2 className="text-lg font-medium text-[var(--color-text)]">
-            Checkpoint 1 — Extraction complete
-          </h2>
-          <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            Agents extracted the CV and summarised the Terms of Reference. Select the expert
-            role this candidate is being submitted for, then approve to continue.
+      {/* Checkpoints 1–3: auto-approved — brief status only */}
+      {(st === "checkpoint_1_pending" ||
+        st === "checkpoint_2_pending" ||
+        st === "checkpoint_3_pending") && (
+        <Card className="border-[var(--color-border)]/80 bg-[var(--color-bg)]/35">
+          <h2 className="text-lg font-medium text-[var(--color-text)]">Preparing your document</h2>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-muted)]">
+            All checkpoints run automatically. When rendering finishes, this page will show{" "}
+            <strong className="text-[var(--color-text)]">Completed</strong> with download and viewer
+            options.
           </p>
-          <TorPoolPicker
-            sessionId={sessionId}
-            busy={approveMut.isPending}
-            onSuccess={() => {
-              void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
-              void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
-              toast("Checkpoint 1 approved.");
-            }}
-            onError={(msg) => toast(msg, "error")}
-          />
-        </Card>
-      )}
-
-      {/* Checkpoint 2 */}
-      {st === "checkpoint_2_pending" && (
-        <CheckpointCard
-          title="Checkpoint 2 — Mapping complete"
-          description="Review the mapping outcome in the manifest, then approve to run field generation, review, and compression."
-          acknowledged={c2Ack}
-          onAckChange={setC2Ack}
-          onApprove={() => approveMut.mutate("checkpoint_2")}
-          busy={approveMut.isPending}
-        />
-      )}
-
-      {/* Checkpoint 3 — ready to render (from both pipeline and post-edit paths) */}
-      {st === "checkpoint_3_pending" && (
-        <Card>
-          <h2 className="text-lg font-medium text-[var(--color-text)]">
-            Checkpoint 3 — Ready to render
-          </h2>
-          <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            Generated content and compression are finalised. Approve to build the Word output.
+          <p className="mt-3 text-xs text-[var(--color-text-muted)]">
+            Current step:{" "}
+            <span className="font-medium text-[var(--color-accent)]">
+              {st.replace(/_/g, " ")}
+            </span>
           </p>
-
-          {/* Skipped edits decision card (only shown after a field-edit submission) */}
-          {lastEditResult && lastEditResult.skipped.length > 0 && (
-            <SkippedEditsCard
-              result={lastEditResult}
-              onApproveAnyway={handleApproveAnyway}
-              onCancelReEdit={handleCancelReEdit}
-            />
-          )}
-
-          {outputQuery.data && <OutputSummary data={outputQuery.data} />}
-
-          <label className="mt-6 flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
-            <input
-              type="checkbox"
-              checked={c3Ack}
-              onChange={(e) => setC3Ack(e.target.checked)}
-            />
-            I have reviewed this output and approve rendering.
-          </label>
-          <Button
-            className="mt-4"
-            type="button"
-            disabled={!c3Ack || approveMut.isPending}
-            onClick={() => approveMut.mutate("checkpoint_3")}
-          >
-            {approveMut.isPending ? "Approving…" : "Approve & render"}
-          </Button>
         </Card>
       )}
 
@@ -370,6 +477,16 @@ export function SessionWorkspacePage() {
           {outputQuery.data && (
             <Card>
               <h2 className="text-lg font-medium text-[var(--color-text)]">Completed</h2>
+
+              {lastEditResult && lastEditResult.skipped.length > 0 && (
+                <div className="mt-4">
+                  <SkippedEditsCard
+                    result={lastEditResult}
+                    onApproveAnyway={handleApproveAnyway}
+                    onCancelReEdit={handleCancelReEdit}
+                  />
+                </div>
+              )}
 
               <OutputSummary data={outputQuery.data} />
 
@@ -478,8 +595,9 @@ export function SessionWorkspacePage() {
       {(st === "queued" || st === "processing") && (
         <Card>
           <p className="text-sm text-[var(--color-text-muted)]">
-            Pipeline is running. This page refreshes automatically. When a checkpoint is reached,
-            approve it here.
+            Pipeline is running. This page refreshes automatically. When the Word file is ready,
+            you&apos;ll see <strong className="text-[var(--color-text)]">Completed</strong>—no
+            checkpoint buttons required.
           </p>
         </Card>
       )}
@@ -490,13 +608,23 @@ export function SessionWorkspacePage() {
     <>
       {sessionContent}
 
-      {/* DocxViewer — opens at completed in either reference or field_editor mode */}
+      {/* DocxViewer — opens as centered modal (reference or field_editor mode) */}
       {showViewer && viewerDocxUrl && (
         <DocxViewer
           docxUrl={viewerDocxUrl}
           mode={viewerMode}
           targetFormat={statusQuery.data?.target_format ?? "giz"}
           cvData={outputQuery.data?.cv_data}
+          onSubmitEdits={
+            viewerMode === "field_editor" ? () => fieldEditMut.mutate(pendingEdits) : undefined
+          }
+          submitEditsDisabled={
+            viewerMode !== "field_editor" ||
+            pendingEdits.length === 0 ||
+            pendingEdits.some((e) => !e.instruction.trim()) ||
+            fieldEditMut.isPending
+          }
+          submitEditsBusy={viewerMode === "field_editor" && fieldEditMut.isPending}
           onEditsChange={viewerMode === "field_editor" ? setPendingEdits : undefined as never}
           onClose={() => {
             setShowViewer(false);
@@ -510,43 +638,7 @@ export function SessionWorkspacePage() {
 }
 
 // ---------------------------------------------------------------------------
-// CheckpointCard
-// ---------------------------------------------------------------------------
-
-function CheckpointCard(props: {
-  title: string;
-  description: string;
-  acknowledged: boolean;
-  onAckChange: (v: boolean) => void;
-  onApprove: () => void;
-  busy: boolean;
-}) {
-  return (
-    <Card>
-      <h2 className="text-lg font-medium text-[var(--color-text)]">{props.title}</h2>
-      <p className="mt-2 text-sm text-[var(--color-text-muted)]">{props.description}</p>
-      <label className="mt-6 flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
-        <input
-          type="checkbox"
-          checked={props.acknowledged}
-          onChange={(e) => props.onAckChange(e.target.checked)}
-        />
-        I have reviewed the results and approve continuing.
-      </label>
-      <Button
-        className="mt-4"
-        type="button"
-        disabled={!props.acknowledged || props.busy}
-        onClick={props.onApprove}
-      >
-        {props.busy ? "Working…" : "Approve checkpoint"}
-      </Button>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// SkippedEditsCard — shown at checkpoint_3_pending when some edits were skipped
+// SkippedEditsCard — shown on completed when some field edits were skipped (optional follow-up)
 // ---------------------------------------------------------------------------
 
 function SkippedEditsCard({
@@ -754,12 +846,14 @@ function OutputSummary({ data }: { data: OutputResponse }) {
   return (
     <div className="mt-6 space-y-4 text-sm">
       {data.compression && (
-        <div className="rounded-xl bg-[var(--color-bg)] p-3 text-[var(--color-text-muted)]">
-          <p className="text-xs font-semibold text-[var(--color-text)]">Compression</p>
-          <pre className="mt-2 whitespace-pre-wrap text-xs">
+        <details className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          <summary className="cursor-pointer text-xs font-semibold text-[var(--color-text)]">
+            Compression details
+          </summary>
+          <pre className="mt-3 max-h-[260px] overflow-auto whitespace-pre-wrap text-xs text-[var(--color-text-muted)]">
             {JSON.stringify(data.compression, null, 2)}
           </pre>
-        </div>
+        </details>
       )}
       {data.generation_warnings?.length > 0 && (
         <div>
@@ -786,3 +880,4 @@ function OutputSummary({ data }: { data: OutputResponse }) {
     </div>
   );
 }
+

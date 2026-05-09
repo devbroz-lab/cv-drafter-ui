@@ -9,6 +9,8 @@ import type {
   TorPoolSelectionResponse,
   TorPoolsResponse,
 } from "./types";
+import { refreshAccessToken } from "./authApi";
+import { clearStoredSession } from "./authStorage";
 
 const BASE = () => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://127.0.0.1:8000";
 
@@ -43,9 +45,25 @@ async function authorizedFetch(
   init: RequestInit,
   token: string | null,
 ): Promise<Response> {
-  const headers = new Headers(init.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(`${BASE()}${path}`, { ...init, headers });
+  let currentToken = token;
+
+  async function doFetch(): Promise<Response> {
+    const headers = new Headers(init.headers);
+    if (currentToken) headers.set("Authorization", `Bearer ${currentToken}`);
+    return fetch(`${BASE()}${path}`, { ...init, headers });
+  }
+
+  let res = await doFetch();
+  if (res.status === 401) {
+    try {
+      currentToken = await refreshAccessToken();
+      res = await doFetch();
+    } catch {
+      clearStoredSession();
+      throw new ApiError(401, "Unauthorized. Please sign in again.");
+    }
+  }
+
   if (!res.ok) {
     let body: unknown = null;
     try {
