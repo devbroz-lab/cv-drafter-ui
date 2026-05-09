@@ -421,7 +421,6 @@ export function SessionWorkspacePage() {
           </p>
           <TorPoolPicker
             sessionId={sessionId}
-            busy={statusQuery.isFetching}
             onSuccess={() => {
               void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
               void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });

@@ -12,7 +12,15 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const LOADING_MESSAGES = [
+  "Saving your expert pool selection…",
+  "Sending approval to the pipeline…",
+  "Checkpoint approved — resuming pipeline…",
+  "Handing off to the AI writer…",
+  "Waiting for the next stage to start…",
+];
 
 import { useAuth } from "../contexts/AuthContext";
 import { formatApiError, getTorPools, approveCheckpoint, selectTorPool } from "../lib/api";
@@ -21,7 +29,6 @@ import { Button } from "./ui";
 
 interface TorPoolPickerProps {
   sessionId: string;
-  busy: boolean;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }
@@ -88,11 +95,21 @@ function PoolCard({
   );
 }
 
-export function TorPoolPicker({ sessionId, busy, onSuccess, onError }: TorPoolPickerProps) {
+export function TorPoolPicker({ sessionId, onSuccess, onError }: TorPoolPickerProps) {
   const { accessToken } = useAuth();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+
+  useEffect(() => {
+    if (!submitting) return;
+    const id = setInterval(
+      () => setLoadingMsgIdx((i) => (i + 1) % LOADING_MESSAGES.length),
+      2200,
+    );
+    return () => clearInterval(id);
+  }, [submitting]);
 
   const poolsQuery = useQuery<TorPoolsResponse>({
     queryKey: ["torPools", sessionId, accessToken],
@@ -105,7 +122,7 @@ export function TorPoolPicker({ sessionId, busy, onSuccess, onError }: TorPoolPi
   const pools = poolsQuery.data?.pools ?? [];
   const resolvedIndex = pools.length === 1 ? 0 : selectedIndex;
 
-  const canApprove = !submitting && !busy && resolvedIndex !== null;
+  const canApprove = !submitting && resolvedIndex !== null;
 
   const handleApprove = async () => {
     if (resolvedIndex === null) return;
@@ -114,19 +131,21 @@ export function TorPoolPicker({ sessionId, busy, onSuccess, onError }: TorPoolPi
     try {
       await selectTorPool(accessToken!, sessionId, resolvedIndex);
     } catch (e) {
-      const msg = formatApiError(e);
-      setInlineError(msg);
+      setInlineError(formatApiError(e));
       setSubmitting(false);
       return;
     }
     try {
       await approveCheckpoint(accessToken!, sessionId, "checkpoint_1", "Approved from web UI");
+      // Do NOT reset submitting here — keep the loading panel up until the
+      // parent's status refetch completes and unmounts this component.
+      // Resetting early would briefly re-show the button while the refetch
+      // is in-flight, causing the user to think they need to click again.
       onSuccess();
     } catch (e) {
       const msg = formatApiError(e);
       setInlineError(msg.includes("pool") ? msg : "Checkpoint approval failed — " + msg);
       onError(msg);
-    } finally {
       setSubmitting(false);
     }
   };
@@ -183,25 +202,42 @@ export function TorPoolPicker({ sessionId, busy, onSuccess, onError }: TorPoolPi
         <p className="text-xs text-red-300">{inlineError}</p>
       )}
 
-      <label className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
-        <input
-          type="checkbox"
-          checked={resolvedIndex !== null}
-          readOnly
-          className="pointer-events-none"
-        />
-        {resolvedIndex !== null
-          ? "Expert pool selected — ready to continue."
-          : "Select an expert pool above to continue."}
-      </label>
+      {submitting ? (
+        <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3.5">
+          <div className="flex items-center gap-3">
+            <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <span className="absolute inline-flex h-5 w-5 animate-ping rounded-full bg-[var(--color-accent)]/30" />
+              <span className="inline-flex h-2.5 w-2.5 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+            </span>
+            <span className="text-sm font-medium text-[var(--color-text)]">Approving…</span>
+          </div>
+          <p className="text-xs text-[var(--color-text-muted)]">
+            {LOADING_MESSAGES[loadingMsgIdx]}
+          </p>
+        </div>
+      ) : (
+        <>
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+            <input
+              type="checkbox"
+              checked={resolvedIndex !== null}
+              readOnly
+              className="pointer-events-none"
+            />
+            {resolvedIndex !== null
+              ? "Expert pool selected — ready to continue."
+              : "Select an expert pool above to continue."}
+          </label>
 
-      <Button
-        type="button"
-        disabled={!canApprove}
-        onClick={() => void handleApprove()}
-      >
-        {submitting ? "Saving selection & approving…" : busy ? "Working…" : "Approve & Continue"}
-      </Button>
+          <Button
+            type="button"
+            disabled={!canApprove}
+            onClick={() => void handleApprove()}
+          >
+            Approve &amp; Continue
+          </Button>
+        </>
+      )}
     </div>
   );
 }
