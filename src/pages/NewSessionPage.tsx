@@ -33,10 +33,14 @@ export function NewSessionPage() {
       toast("Please choose a CV file (.docx or .pdf).", "error");
       return;
     }
+    if (!torFile) {
+      toast("Please choose a ToR file (.docx or .pdf).", "error");
+      return;
+    }
     setBusy(true);
     try {
       const sourceFilename = cvFile.name;
-      const torFilename = torFile?.name ?? null;
+      const torFilename = torFile.name;
       const { session_id } = await createSession(accessToken, {
         target_format: targetFormat,
         source_filename: sourceFilename,
@@ -50,7 +54,7 @@ export function NewSessionPage() {
       });
 
       await uploadSource(accessToken, session_id, cvFile);
-      if (torFile) await uploadTor(accessToken, session_id, torFile);
+      await uploadTor(accessToken, session_id, torFile);
       await startSession(accessToken, session_id);
 
       upsertRecentSession({
@@ -107,6 +111,7 @@ export function NewSessionPage() {
                 id="cv-file"
                 className="mt-1 cursor-pointer"
                 type="file"
+                required
                 accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 onChange={(e) => setCvFile(e.target.files?.[0] ?? null)}
               />
@@ -116,16 +121,17 @@ export function NewSessionPage() {
             </div>
 
             <div className="sm:col-span-2">
-              <Label htmlFor="tor-file">ToR file (optional)</Label>
+              <Label htmlFor="tor-file">ToR file (.docx / .pdf)</Label>
               <Input
                 id="tor-file"
                 className="mt-1 cursor-pointer"
                 type="file"
+                required
                 accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 onChange={(e) => setTorFile(e.target.files?.[0] ?? null)}
               />
               <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                {torFile ? `Selected: ${torFile.name}` : "Optional supporting document"}
+                {torFile ? `Selected: ${torFile.name}` : "Required file"}
               </p>
             </div>
             </div>

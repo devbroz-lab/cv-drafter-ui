@@ -297,6 +297,7 @@ interface DocxViewerBaseProps {
   onClose: () => void;
   targetFormat?: TargetFormat;
   embedded?: boolean;
+  initialEdits?: FieldEditItem[];
   onSubmitEdits?: () => void;
   submitEditsDisabled?: boolean;
   submitEditsBusy?: boolean;
@@ -345,6 +346,7 @@ export function DocxViewer(props: DocxViewerProps) {
     targetFormat = "giz",
     cvData,
     embedded = false,
+    initialEdits = [],
     onSubmitEdits,
     submitEditsDisabled = true,
     submitEditsBusy = false,
@@ -360,7 +362,20 @@ export function DocxViewer(props: DocxViewerProps) {
   const [copiedAll, setCopiedAll] = useState(false);
 
   // Field editor mode state
-  const [fieldEdits, setFieldEdits] = useState<FieldEditEntry[]>([]);
+  const [fieldEdits, setFieldEdits] = useState<FieldEditEntry[]>(() =>
+    initialEdits.map((e) => ({
+      id: crypto.randomUUID(),
+      locator: {
+        location: "paragraph",
+        paragraph_index: -1,
+        text_content: e.field_path,
+      },
+      dotPath: e.field_path,
+      confidence: "mapped",
+      label: e.field_path,
+      instruction: e.instruction,
+    })),
+  );
   const [tooltipState, setTooltipState] = useState<TooltipState | null>(null);
 
   const tableLabels = targetFormat === "giz" ? GIZ_TABLE_LABELS : WB_TABLE_LABELS;

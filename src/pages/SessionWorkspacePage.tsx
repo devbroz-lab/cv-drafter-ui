@@ -11,8 +11,6 @@ import {
   getOutput,
   getOutputDownloadUrl,
   getSessionStatus,
-  getTorPools,
-  selectTorPool,
   submitFieldEdits,
 } from "../lib/api";
 import { upsertRecentSession } from "../lib/recentSessions";
@@ -26,6 +24,7 @@ import type {
 } from "../lib/types";
 
 import { DocxViewer } from "../components/DocxViewer";
+import { TorPoolPicker } from "../components/TorPoolPicker";
 import { Button, Card } from "../components/ui";
 
 // ---------------------------------------------------------------------------
@@ -59,7 +58,7 @@ function progressForStatus(status: SessionStatus | undefined): number {
   }
 }
 
-/** Notes persisted with auto-approved checkpoints (1, 2 & 3 — no manual UI). */
+/** Notes persisted with auto-approved checkpoints (2 & 3). */
 const AUTO_CP_NOTES = "Auto-approved (checkpoints skipped in UI)";
 
 // ---------------------------------------------------------------------------
@@ -115,48 +114,7 @@ export function SessionWorkspacePage() {
     }
   }, [statusQuery.data]);
 
-  // ── Auto-approve checkpoints 1–3 (skip all manual checkpoint steps) ──────────
-
-  useEffect(() => {
-    if (!accessToken || !sessionId || st !== "checkpoint_1_pending") return;
-
-    const ac = new AbortController();
-    let lastErr = "";
-
-    void (async () => {
-      const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-      const maxAttempts = 45;
-
-      for (let attempt = 0; attempt < maxAttempts && !ac.signal.aborted; attempt++) {
-        try {
-          const poolsResp = await getTorPools(accessToken, sessionId);
-          if (ac.signal.aborted) return;
-          const idx =
-            typeof poolsResp.selected_pool_index === "number"
-              ? poolsResp.selected_pool_index
-              : 0;
-          await selectTorPool(accessToken, sessionId, idx);
-          if (ac.signal.aborted) return;
-          await approveCheckpoint(accessToken, sessionId, "checkpoint_1", AUTO_CP_NOTES);
-          void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
-          void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
-          void qc.invalidateQueries({ queryKey: ["torPools", sessionId] });
-          return;
-        } catch (e) {
-          lastErr = formatApiError(e);
-          await wait(2000);
-        }
-      }
-      if (!ac.signal.aborted && lastErr) {
-        toast(
-          `Could not auto-complete checkpoint 1 after several tries: ${lastErr}`,
-          "error",
-        );
-      }
-    })();
-
-    return () => ac.abort();
-  }, [accessToken, qc, sessionId, st, toast]);
+  // ── Auto-approve checkpoints 2 & 3 (checkpoint 1 is manual ToR selection) ───
 
   useEffect(() => {
     if (!accessToken || !sessionId || st !== "checkpoint_2_pending") return;
@@ -451,14 +409,35 @@ export function SessionWorkspacePage() {
           </Card>
         )}
 
-      {/* Checkpoints 1–3: auto-approved — brief status only */}
-      {(st === "checkpoint_1_pending" ||
-        st === "checkpoint_2_pending" ||
-        st === "checkpoint_3_pending") && (
+      {/* Checkpoint 1: manual ToR selection */}
+      {st === "checkpoint_1_pending" && (
+        <Card className="border-[var(--color-border)]/80 bg-[var(--color-bg)]/35">
+          <h2 className="text-lg font-medium text-[var(--color-text)]">
+            Checkpoint 1 — Select ToR role
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-muted)]">
+            Choose the best-matching expert pool from the ToR. Once selected and approved, the
+            pipeline continues automatically.
+          </p>
+          <TorPoolPicker
+            sessionId={sessionId}
+            busy={statusQuery.isFetching}
+            onSuccess={() => {
+              void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
+              void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
+              toast("Checkpoint 1 approved.");
+            }}
+            onError={(msg) => toast(msg, "error")}
+          />
+        </Card>
+      )}
+
+      {/* Checkpoints 2–3: auto-approved — brief status only */}
+      {(st === "checkpoint_2_pending" || st === "checkpoint_3_pending") && (
         <Card className="border-[var(--color-border)]/80 bg-[var(--color-bg)]/35">
           <h2 className="text-lg font-medium text-[var(--color-text)]">Preparing your document</h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-muted)]">
-            All checkpoints run automatically. When rendering finishes, this page will show{" "}
+            Remaining checkpoints run automatically. When rendering finishes, this page will show{" "}
             <strong className="text-[var(--color-text)]">Completed</strong> with download and viewer
             options.
           </p>
@@ -615,6 +594,7 @@ export function SessionWorkspacePage() {
           mode={viewerMode}
           targetFormat={statusQuery.data?.target_format ?? "giz"}
           cvData={outputQuery.data?.cv_data}
+          initialEdits={pendingEdits}
           onSubmitEdits={
             viewerMode === "field_editor" ? () => fieldEditMut.mutate(pendingEdits) : undefined
           }
@@ -629,7 +609,6 @@ export function SessionWorkspacePage() {
           onClose={() => {
             setShowViewer(false);
             setViewerDocxUrl(null);
-            setPendingEdits([]);
           }}
         />
       )}
