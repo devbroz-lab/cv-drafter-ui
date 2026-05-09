@@ -72,9 +72,65 @@ type TooltipState = {
   anchorY: number;
   cellLabel: string;
   options: CompositeCellOption[];
+  locator: Locator;
+  /** Set when re-opening an already-batched edit for modification */
+  existingEntryId?: string;
+  initialInstruction?: string;
+  initialSelectedOption?: CompositeCellOption;
   /** For tasks_assigned cells that need a resolved path injected back */
   resolvedSinglePath?: string;
 };
+
+function locKey(l: Locator): string {
+  return l.location === "paragraph"
+    ? `p-${l.paragraph_index}`
+    : `t-${l.table_index}-${l.row_index}-${l.cell_index}`;
+}
+
+// One distinct color per edit slot (max 5). All class strings must be complete
+// literals so Tailwind JIT can detect and include them in the bundle.
+const EDIT_COLORS = [
+  {
+    dot: "bg-amber-400",
+    cardBorder: "border-l-amber-400",
+    docParaBorder: "border-amber-400",
+    docParaBg: "bg-amber-50",
+    docCellBg: "bg-amber-50",
+    docCellOutline: "outline outline-2 outline-amber-400",
+  },
+  {
+    dot: "bg-violet-400",
+    cardBorder: "border-l-violet-400",
+    docParaBorder: "border-violet-400",
+    docParaBg: "bg-violet-50",
+    docCellBg: "bg-violet-50",
+    docCellOutline: "outline outline-2 outline-violet-400",
+  },
+  {
+    dot: "bg-emerald-400",
+    cardBorder: "border-l-emerald-400",
+    docParaBorder: "border-emerald-400",
+    docParaBg: "bg-emerald-50",
+    docCellBg: "bg-emerald-50",
+    docCellOutline: "outline outline-2 outline-emerald-400",
+  },
+  {
+    dot: "bg-rose-400",
+    cardBorder: "border-l-rose-400",
+    docParaBorder: "border-rose-400",
+    docParaBg: "bg-rose-50",
+    docCellBg: "bg-rose-50",
+    docCellOutline: "outline outline-2 outline-rose-400",
+  },
+  {
+    dot: "bg-cyan-400",
+    cardBorder: "border-l-cyan-400",
+    docParaBorder: "border-cyan-400",
+    docParaBg: "bg-cyan-50",
+    docCellBg: "bg-cyan-50",
+    docCellOutline: "outline outline-2 outline-cyan-400",
+  },
+] as const;
 
 // GIZ table index → human-readable section name (for display hints)
 const GIZ_TABLE_LABELS: Record<number, string> = {
@@ -239,22 +295,26 @@ function ReferenceItem({
 function FieldEditEntryItem({
   entry,
   index,
+  colorIndex,
   onInstructionChange,
   onRemove,
 }: {
   entry: FieldEditEntry;
   index: number;
+  colorIndex: number;
   onInstructionChange: (id: string, instruction: string) => void;
   onRemove: (id: string) => void;
 }) {
   const snippet = entry.locator.text_content.length > 60
     ? entry.locator.text_content.slice(0, 60) + "…"
     : entry.locator.text_content;
+  const color = EDIT_COLORS[colorIndex];
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-xs space-y-2">
+    <div className={`rounded-xl border border-[var(--color-border)] border-l-4 ${color.cardBorder} bg-[var(--color-bg)] p-3 text-xs space-y-2`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
+          <span className={`inline-block h-2 w-2 rounded-full ${color.dot}`} />
           <span className="font-medium text-[var(--color-text-muted)]">Edit #{index + 1}</span>
           {entry.confidence === "mapped" ? (
             <span className="rounded bg-emerald-950/60 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">mapped</span>
@@ -381,15 +441,15 @@ export function DocxViewer(props: DocxViewerProps) {
   const tableLabels = targetFormat === "giz" ? GIZ_TABLE_LABELS : WB_TABLE_LABELS;
 
   const referencedKeys = new Set([
-    ...references.map((r) => {
-      const l = r.locator;
-      return l.location === "paragraph" ? `p-${l.paragraph_index}` : `t-${l.table_index}-${l.row_index}-${l.cell_index}`;
-    }),
-    ...fieldEdits.map((e) => {
-      const l = e.locator;
-      return l.location === "paragraph" ? `p-${l.paragraph_index}` : `t-${l.table_index}-${l.row_index}-${l.cell_index}`;
-    }),
+    ...references.map((r) => locKey(r.locator)),
+    ...fieldEdits.map((e) => locKey(e.locator)),
   ]);
+
+  const activeKey = tooltipState ? locKey(tooltipState.locator) : null;
+
+  // Maps each edited cell's key to its color index (0-4) so both the document
+  // highlight and the sidebar card share the same color.
+  const editColorMap = new Map(fieldEdits.map((e, i) => [locKey(e.locator), i]));
 
   // Load document
   useEffect(() => {
@@ -433,12 +493,12 @@ export function DocxViewer(props: DocxViewerProps) {
   const handleLocatorClick = useCallback(
     (locator: Locator, mouseEvent: React.MouseEvent) => {
       if (mode !== "field_editor") {
-        // Reference mode — append directly
         setReferences((prev) => [...prev, { id: crypto.randomUUID(), locator, comment: "" }]);
         return;
       }
 
-      if (fieldEdits.length >= 5) return;
+      const existingEdit = fieldEdits.find((e) => locKey(e.locator) === locKey(locator));
+      if (fieldEdits.length >= 5 && !existingEdit) return;
 
       const result = locatorToDotPath(locator as UtilLocator, targetFormat);
 
@@ -446,33 +506,36 @@ export function DocxViewer(props: DocxViewerProps) {
       let cellLabel = result.label;
 
       if (result.kind === "tasks_assigned") {
-        // WB tasks_assigned — resolve path from generated_fields at runtime
         const resolvedPath = resolveTasksAssignedPath(
           cvData?.generated_fields,
           result.projectIndex,
         );
-        if (!resolvedPath) {
-          // Cannot resolve — non-editable cell, show nothing
-          return;
-        }
+        if (!resolvedPath) return;
         tooltipOptions = [{ label: "Assigned Tasks (detailed_tasks)", dotPath: resolvedPath }];
       } else if (result.kind === "composite") {
         tooltipOptions = result.options;
       } else {
-        // Simple cell — single option, tooltip skips selector step
         tooltipOptions = [{ label: result.label, dotPath: result.dotPath }];
       }
 
       if (tooltipOptions.length === 0) return;
+
+      const initialSelectedOption = existingEdit
+        ? (tooltipOptions.find((o) => o.dotPath === existingEdit.dotPath) ?? tooltipOptions[0])
+        : undefined;
 
       setTooltipState({
         anchorX: mouseEvent.clientX,
         anchorY: mouseEvent.clientY,
         cellLabel,
         options: tooltipOptions,
+        locator,
+        existingEntryId: existingEdit?.id,
+        initialInstruction: existingEdit?.instruction,
+        initialSelectedOption,
       });
     },
-    [mode, fieldEdits.length, targetFormat, cvData],
+    [mode, fieldEdits, targetFormat, cvData],
   );
 
   // ---------------------------------------------------------------------------
@@ -481,31 +544,36 @@ export function DocxViewer(props: DocxViewerProps) {
 
   const handleTooltipAdd = useCallback(
     (entry: { dotPath: string; instruction: string; locatorLabel: string }) => {
-      // We need to find the locator that triggered the tooltip. We'll use a
-      // ref-like approach: store the last-clicked locator alongside tooltip state.
-      // Since setTooltipState is called synchronously in handleLocatorClick, we
-      // can grab it from state with a small indirection.
-      //
-      // Simplest approach: store the locator in tooltipState as well.
+      if (!tooltipState) return;
+      const { locator, existingEntryId } = tooltipState;
       setTooltipState(null);
 
-      // Build the edit entry. The locator is not stored in tooltipState currently;
-      // create a synthetic paragraph-0 locator as placeholder since the dot-path
-      // is the authoritative source — the locator is only used for the display
-      // key and the cell highlight in the viewer.
-      const newEntry: FieldEditEntry = {
-        id: crypto.randomUUID(),
-        locator: { location: "paragraph", paragraph_index: -1, text_content: entry.locatorLabel },
-        dotPath: entry.dotPath,
-        confidence: "mapped",
-        label: entry.locatorLabel,
-        instruction: entry.instruction,
-      };
-      const next = [...fieldEdits, newEntry];
-      setFieldEdits(next);
-      notifyEditsChange(next);
+      setFieldEdits((prev) => {
+        let next: FieldEditEntry[];
+        if (existingEntryId) {
+          next = prev.map((e) =>
+            e.id === existingEntryId
+              ? { ...e, dotPath: entry.dotPath, label: entry.locatorLabel, instruction: entry.instruction }
+              : e,
+          );
+        } else {
+          next = [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              locator,
+              dotPath: entry.dotPath,
+              confidence: "mapped",
+              label: entry.locatorLabel,
+              instruction: entry.instruction,
+            },
+          ];
+        }
+        notifyEditsChange(next);
+        return next;
+      });
     },
-    [fieldEdits, notifyEditsChange],
+    [tooltipState, notifyEditsChange],
   );
 
   const handleTooltipCancel = useCallback(() => {
@@ -642,6 +710,9 @@ export function DocxViewer(props: DocxViewerProps) {
                     if (!block.text.trim()) return null;
                     const key = `p-${block.paragraphIndex}`;
                     const isReferenced = referencedKeys.has(key);
+                    const isActive = key === activeKey;
+                    const editColorIndex = editColorMap.get(key);
+                    const editColor = editColorIndex !== undefined ? EDIT_COLORS[editColorIndex] : null;
                     const atMax = mode === "field_editor" && fieldEdits.length >= 5;
                     return (
                       <div
@@ -655,10 +726,16 @@ export function DocxViewer(props: DocxViewerProps) {
                         }
                         className={[
                           "rounded px-3 py-2.5 text-[15px] leading-relaxed text-gray-800 transition-all border-l-4",
-                          atMax && !isReferenced
+                          atMax && !isReferenced && !isActive
                             ? "cursor-not-allowed opacity-50 border-transparent bg-gray-50"
                             : "cursor-pointer hover:border-blue-400 hover:bg-blue-50",
-                          isReferenced ? "border-[#d97757] bg-orange-50" : "border-transparent bg-gray-50",
+                          isActive
+                            ? "border-blue-500 bg-blue-100 ring-1 ring-blue-400"
+                            : editColor
+                            ? `${editColor.docParaBorder} ${editColor.docParaBg}`
+                            : isReferenced
+                            ? "border-[#d97757] bg-orange-50"
+                            : "border-transparent bg-gray-50",
                         ].join(" ")}
                         title={
                           atMax && !isReferenced
@@ -681,6 +758,9 @@ export function DocxViewer(props: DocxViewerProps) {
                               {row.cells.map((cell) => {
                                 const key = `t-${block.tableIndex}-${row.rowIndex}-${cell.cellIndex}`;
                                 const isReferenced = referencedKeys.has(key);
+                                const isActive = key === activeKey;
+                                const editColorIndex = editColorMap.get(key);
+                                const editColor = editColorIndex !== undefined ? EDIT_COLORS[editColorIndex] : null;
                                 const composite = mode === "field_editor" &&
                                   isCellComposite(block.tableIndex, row.rowIndex, cell.cellIndex);
 
@@ -702,10 +782,16 @@ export function DocxViewer(props: DocxViewerProps) {
                                     }
                                     className={[
                                       "border border-gray-200 px-2.5 py-2 transition-all relative",
-                                      atMax && !isReferenced
+                                      atMax && !isReferenced && !isActive
                                         ? "cursor-not-allowed opacity-50"
                                         : "cursor-pointer hover:bg-blue-50 hover:outline hover:outline-1 hover:outline-blue-400",
-                                      isReferenced ? "bg-orange-50 outline outline-1 outline-[#d97757]" : "",
+                                      isActive
+                                        ? "bg-blue-100 outline outline-2 outline-blue-500"
+                                        : editColor
+                                        ? `${editColor.docCellBg} ${editColor.docCellOutline}`
+                                        : isReferenced
+                                        ? "bg-orange-50 outline outline-1 outline-[#d97757]"
+                                        : "",
                                     ].join(" ")}
                                     title={
                                       `${tableLabels[block.tableIndex] ?? `Table ${block.tableIndex}`} · r${row.rowIndex}c${cell.cellIndex}` +
@@ -756,6 +842,7 @@ export function DocxViewer(props: DocxViewerProps) {
                       key={entry.id}
                       entry={entry}
                       index={i}
+                      colorIndex={i}
                       onInstructionChange={updateInstruction}
                       onRemove={removeFieldEdit}
                     />
@@ -840,6 +927,9 @@ export function DocxViewer(props: DocxViewerProps) {
           cellLabel={tooltipState.cellLabel}
           options={tooltipState.options}
           batchSize={fieldEdits.length}
+          isEditing={!!tooltipState.existingEntryId}
+          initialSelectedOption={tooltipState.initialSelectedOption}
+          initialInstruction={tooltipState.initialInstruction}
           onAdd={handleTooltipAdd}
           onCancel={handleTooltipCancel}
         />

@@ -37,6 +37,12 @@ export interface FieldSelectorTooltipProps {
   options: CompositeCellOption[];
   /** Current number of edits in the batch (for the 5/5 cap check) */
   batchSize: number;
+  /** True when re-opening an existing batch entry for modification */
+  isEditing?: boolean;
+  /** Pre-selected option when re-opening an existing edit */
+  initialSelectedOption?: CompositeCellOption;
+  /** Pre-filled instruction when re-opening an existing edit */
+  initialInstruction?: string;
   onAdd: (entry: { dotPath: string; instruction: string; locatorLabel: string }) => void;
   onCancel: () => void;
 }
@@ -59,14 +65,16 @@ export function FieldSelectorTooltip({
   cellLabel,
   options,
   batchSize,
+  isEditing = false,
+  initialSelectedOption,
+  initialInstruction,
   onAdd,
   onCancel,
 }: FieldSelectorTooltipProps) {
-  // If only one option, skip the selector step and go straight to instruction.
   const [selectedOption, setSelectedOption] = useState<CompositeCellOption | null>(
-    options.length === 1 ? options[0] : null,
+    initialSelectedOption ?? (options.length === 1 ? options[0] : null),
   );
-  const [instruction, setInstruction] = useState("");
+  const [instruction, setInstruction] = useState(initialInstruction ?? "");
   const tooltipRef = useRef<HTMLDivElement>(null);
   const instructionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -109,7 +117,7 @@ export function FieldSelectorTooltip({
     ? anchorY - TOOLTIP_APPROX_HEIGHT - 4
     : anchorY + 8;
 
-  const isBatchFull = batchSize >= MAX_BATCH;
+  const isBatchFull = !isEditing && batchSize >= MAX_BATCH;
   const canAdd = !isBatchFull && !!selectedOption && instruction.trim().length > 0;
 
   const handleAdd = () => {
@@ -137,7 +145,14 @@ export function FieldSelectorTooltip({
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2">
-        <span className="font-semibold text-[var(--color-text)] truncate">{cellLabel}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-semibold text-[var(--color-text)] truncate">{cellLabel}</span>
+          {isEditing && (
+            <span className="shrink-0 rounded bg-blue-900/50 px-1.5 py-0.5 text-[10px] font-medium text-blue-300">
+              editing
+            </span>
+          )}
+        </div>
         <button
           type="button"
           onClick={onCancel}
@@ -227,7 +242,7 @@ export function FieldSelectorTooltip({
                     : "cursor-not-allowed bg-[var(--color-border)] text-[var(--color-text-muted)]",
                 ].join(" ")}
               >
-                {isBatchFull ? "Batch full (5/5)" : "Add to batch"}
+                {isBatchFull ? "Batch full (5/5)" : isEditing ? "Update edit" : "Add to batch"}
               </button>
               <button
                 type="button"
