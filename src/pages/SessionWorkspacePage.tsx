@@ -21,6 +21,7 @@ import type {
   LowSeverityIssue,
   OutputResponse,
   SessionStatus,
+  SkippedEditItem,
 } from "../lib/types";
 
 import { DocxViewer } from "../components/DocxViewer";
@@ -256,19 +257,24 @@ export function SessionWorkspacePage() {
       void qc.invalidateQueries({ queryKey: ["output", sessionId] });
       setPendingEdits([]);
 
-      if (data.skipped.length === 0) {
-        // All edits applied — close viewer; rendering continues automatically.
+      const skipped = data.skipped ?? [];
+      const applied = data.applied ?? [];
+
+      if (skipped.length === 0) {
         setShowViewer(false);
         setViewerDocxUrl(null);
         setLastEditResult(null);
-        toast(`${data.applied.length} edit${data.applied.length !== 1 ? "s" : ""} applied.`);
+        toast(`${applied.length} edit${applied.length !== 1 ? "s" : ""} applied.`);
       } else {
-        // Some edits were skipped — keep viewer open, surface decision UI.
         setLastEditResult(data);
-        toast(`${data.applied.length} applied, ${data.skipped.length} skipped — see details below.`, "error");
+        toast(`${applied.length} applied, ${skipped.length} skipped — see details below.`, "error");
       }
     },
-    onError: (e) => toast(formatApiError(e), "error"),
+    onError: (e) => {
+      toast(formatApiError(e), "error");
+      setShowViewer(false);
+      setViewerDocxUrl(null);
+    },
   });
 
   // After partial skips: dismiss notice on completed (render already ran or will complete).
@@ -449,22 +455,22 @@ export function SessionWorkspacePage() {
         </Card>
       )}
 
+      {/* Skipped edits notice — shown as soon as field-edit responds, stays until dismissed */}
+      {lastEditResult && lastEditResult.skipped.length > 0 && (
+        <SkippedEditsCard
+          result={lastEditResult}
+          canReEdit={st === "completed"}
+          onApproveAnyway={handleApproveAnyway}
+          onCancelReEdit={handleCancelReEdit}
+        />
+      )}
+
       {/* Completed */}
       {st === "completed" && (
         <>
           {outputQuery.data && (
             <Card>
               <h2 className="text-lg font-medium text-[var(--color-text)]">Completed</h2>
-
-              {lastEditResult && lastEditResult.skipped.length > 0 && (
-                <div className="mt-4">
-                  <SkippedEditsCard
-                    result={lastEditResult}
-                    onApproveAnyway={handleApproveAnyway}
-                    onCancelReEdit={handleCancelReEdit}
-                  />
-                </div>
-              )}
 
               <OutputSummary data={outputQuery.data} />
 
@@ -621,27 +627,29 @@ export function SessionWorkspacePage() {
 
 function SkippedEditsCard({
   result,
+  canReEdit,
   onApproveAnyway,
   onCancelReEdit,
 }: {
   result: FieldEditResponse;
+  canReEdit: boolean;
   onApproveAnyway: () => void;
   onCancelReEdit: () => void;
 }) {
   return (
-    <div className="mt-4 rounded-xl border border-amber-800/40 bg-amber-950/20 p-4 space-y-3 text-sm">
+    <Card className="border-amber-800/40 bg-amber-950/10">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold text-amber-300">
-          {result.applied.length} edit{result.applied.length !== 1 ? "s" : ""} applied
+        <h2 className="text-sm font-semibold text-amber-300">Edit results</h2>
+        <span className="rounded bg-emerald-950/60 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+          {result.applied.length} applied
         </span>
-        <span className="text-[var(--color-text-muted)]">·</span>
-        <span className="font-semibold text-red-300">
+        <span className="rounded bg-red-950/60 px-2 py-0.5 text-[10px] font-medium text-red-300">
           {result.skipped.length} skipped
         </span>
       </div>
 
       {result.applied.length > 0 && (
-        <div>
+        <div className="mt-3">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
             Applied
           </p>
@@ -655,33 +663,44 @@ function SkippedEditsCard({
         </div>
       )}
 
-      <div>
+      <div className="mt-3">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-red-400">
           Skipped — the agent could not apply these
         </p>
-        <ul className="mt-1 space-y-0.5">
-          {result.skipped.map((p) => (
-            <li key={p}>
-              <code className="text-xs text-red-300">{p}</code>
-            </li>
-          ))}
+        <ul className="mt-2 space-y-2">
+          {result.skipped.map((p, i) => {
+            const item: SkippedEditItem = typeof p === "string" ? { path: p } : p;
+            return (
+              <li key={item.path ?? i} className="rounded-lg border border-red-900/30 bg-[var(--color-surface)] px-3 py-2">
+                <code className="text-xs text-red-300">{item.path}</code>
+                {item.reason && (
+                  <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+                    <span className="font-medium text-[var(--color-text)]">Reason: </span>
+                    {item.reason}
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
 
-      <p className="text-xs text-[var(--color-text-muted)]">
-        Applied edits are already written and will appear in the re-rendered output. Skipped edits
-        are absent. Choose how to proceed:
+      <p className="mt-3 text-xs text-[var(--color-text-muted)]">
+        Applied edits are written and will appear in the re-rendered output.
+        {!canReEdit && " Waiting for re-render to complete before you can edit again."}
       </p>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <Button type="button" variant="secondary" onClick={onApproveAnyway}>
-          Approve anyway
+          Dismiss
         </Button>
-        <Button type="button" variant="secondary" onClick={onCancelReEdit}>
-          Cancel &amp; re-edit skipped fields
-        </Button>
+        {canReEdit && (
+          <Button type="button" variant="secondary" onClick={onCancelReEdit}>
+            Re-edit skipped fields
+          </Button>
+        )}
       </div>
-    </div>
+    </Card>
   );
 }
 

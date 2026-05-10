@@ -130,13 +130,19 @@ export interface FieldEditItem {
   instruction: string;
 }
 
+export interface SkippedEditItem {
+  path: string;
+  reason?: string;
+}
+
 export interface FieldEditResponse {
   session_id: string;
   status: SessionStatus;
   /** Round number after increment — present in the backend response */
   round: number;
   applied: string[];
-  skipped: string[];
+  /** Backend may return plain strings or {path, reason} objects */
+  skipped: Array<string | SkippedEditItem>;
   message: string;
 }
 

@@ -83,7 +83,34 @@ function gizTableToDotPath(
   rowIndex: number,
   cellIndex: number,
 ): LocatorMappingResult | null {
-  // Data rows start at rowIndex 1; convert to zero-based array index.
+  switch (tableIndex) {
+    case 0: {
+      // Personal Info / Header — static table, no row expansion.
+      // cell 0 is the label, cell 1 is the editable value.
+      if (cellIndex !== 1) return null;
+      switch (rowIndex) {
+        case 0: return { kind: "simple", dotPath: "proposed_position",           confidence: "mapped", label: "Proposed role"         };
+        case 1: return { kind: "simple", dotPath: "category",                    confidence: "mapped", label: "Category"              };
+        case 2: return { kind: "simple", dotPath: "employer",                    confidence: "mapped", label: "Name of firm"          };
+        case 3: return { kind: "simple", dotPath: "personal_info.title",         confidence: "mapped", label: "Title"                 };
+        case 4: return { kind: "simple", dotPath: "personal_info.first_names",   confidence: "mapped", label: "First names"           };
+        case 5: return { kind: "simple", dotPath: "personal_info.family_name",   confidence: "mapped", label: "Family name"           };
+        case 6: return { kind: "simple", dotPath: "personal_info.date_of_birth", confidence: "mapped", label: "Date of birth"         };
+        case 7: return {
+          kind: "composite", dotPath: "", confidence: "mapped",
+          label: "Nationality",
+          options: [
+            { label: "Primary nationality", dotPath: "personal_info.nationality"        },
+            { label: "Second nationality",  dotPath: "personal_info.nationality_second" },
+          ],
+        };
+        case 8: return { kind: "simple", dotPath: "personal_info.place_of_residence", confidence: "mapped", label: "Place of residence" };
+      }
+      return null;
+    }
+  }
+
+  // Tables 1, 2, 4, 5 use dynamic row expansion — data rows start at rowIndex 1.
   const i = rowIndex - 1;
   if (i < 0) return null; // header row — not editable
 
@@ -130,6 +157,18 @@ function gizTableToDotPath(
           label: `Language ${i + 1} — ${lf.label}`,
         };
       break;
+    }
+    case 3: {
+      // Skills / Membership — static table, no row expansion.
+      // cell 0 is the label, cell 1 is the editable value.
+      if (cellIndex !== 1) return null;
+      switch (rowIndex) {
+        case 0: return { kind: "simple", dotPath: "membership_professional_bodies", confidence: "mapped", label: "Membership in professional bodies" };
+        case 1: return null; // other_skills is an array — not a scalar, backend would reject it
+        case 2: return { kind: "simple", dotPath: "present_position", confidence: "mapped", label: "Present position" };
+        case 3: return { kind: "simple", dotPath: "years_with_firm",  confidence: "mapped", label: "Years within the firm" };
+      }
+      return null;
     }
     case 4: {
       // Countries of Experience
