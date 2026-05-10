@@ -21,7 +21,12 @@
  *   carries `needsTasksAssignedResolution` for the caller to handle.
  */
 
-import type { CompositeCellOption, GeneratedField, TargetFormat } from "../types";
+import type {
+  CompositeCellOption,
+  CVDataLite,
+  GeneratedField,
+  TargetFormat,
+} from "../types";
 
 // ---------------------------------------------------------------------------
 // Locator input type
@@ -380,6 +385,208 @@ function wbTableToDotPath(
 }
 
 // ---------------------------------------------------------------------------
+// Key qualifications — paragraph clicks vs array indices
+// ---------------------------------------------------------------------------
+//
+// DocxViewer assigns paragraph_index as the global <w:p> ordinal in
+// document.xml. That must NOT be used as key_qualifications[N]: the list only
+// has one entry per bullet while paragraph indices include headings, tables,
+// and all sections. Resolve by matching clicked text to cv_data bullets and,
+// for GIZ, by scanning paragraphs after the "Key qualifications" heading.
+
+/** Minimal block shape for KQ layout fallback ( mirrors DocxViewer ParsedBlock ). */
+export type KqDocBlock =
+  | { kind: "paragraph"; paragraphIndex: number; text: string }
+  | { kind: "table"; tableIndex: number };
+
+export type LocatorToDotPathOptions = {
+  /** Texts aligned with generated_fields.json → generated.key_qualifications[i]. */
+  keyQualifications?: string[];
+  /** Optional: GIZ output.docx paragraph order after the KQ section heading. */
+  docBlocks?: KqDocBlock[];
+  /** Scalar body field — often split across multiple Word paragraphs. */
+  otherRelevantInfo?: string;
+};
+
+function normalizeWhitespace(s: string): string {
+  return s.trim().replace(/\s+/g, " ");
+}
+
+function stripBulletPrefix(s: string): string {
+  return s.replace(/^[\s•·▪▫\u2022\u2023\-–—*]+\s*/u, "").trim();
+}
+
+/** Builds the same bullet list the renderer / field editor use for paths like key_qualifications[i]. */
+export function effectiveKeyQualifications(cv: CVDataLite | undefined): string[] {
+  if (!cv) return [];
+  const top = cv.key_qualifications;
+  if (Array.isArray(top) && top.length > 0) {
+    const coerced = top.map((x) => String(x).trim()).filter(Boolean);
+    if (coerced.length > 0) return coerced;
+  }
+  const gf = cv.generated_fields;
+  if (Array.isArray(gf)) {
+    const fromGf = gf
+      .filter(
+        (f): f is GeneratedField =>
+          f.field_key === "key_qualifications" && typeof f.content === "string",
+      )
+      .map((f) => f.content.trim())
+      .filter(Boolean);
+    if (fromGf.length > 0) return fromGf;
+  }
+  return [];
+}
+
+const KQ_TEXT_MATCH_MIN_SCORE = 40;
+
+/**
+ * Picks the best key_qualifications index for a clicked paragraph by comparing
+ * its text to each bullet (exact, substring, or word-overlap).
+ */
+export function matchKeyQualificationIndex(
+  paragraphText: string,
+  bullets: string[],
+): number | null {
+  const p0 = stripBulletPrefix(paragraphText);
+  const p = normalizeWhitespace(p0).toLowerCase();
+  if (!p || bullets.length === 0) return null;
+
+  let bestIdx: number | null = null;
+  let bestScore = 0;
+
+  for (let i = 0; i < bullets.length; i++) {
+    const b0 = stripBulletPrefix(bullets[i]);
+    const b = normalizeWhitespace(b0).toLowerCase();
+    if (!b) continue;
+
+    let score = 0;
+    if (p === b) {
+      score = 100;
+    } else if (p.includes(b) || b.includes(p)) {
+      score = 85;
+    } else {
+      const pw = new Set(p.split(/\s+/).filter((w) => w.length > 1));
+      const bw = new Set(b.split(/\s+/).filter((w) => w.length > 1));
+      let inter = 0;
+      for (const w of pw) {
+        if (bw.has(w)) inter += 1;
+      }
+      const union = pw.size + bw.size - inter;
+      score = union > 0 ? Math.round((100 * inter) / union) : 0;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+
+  if (bestIdx === null || bestScore < KQ_TEXT_MATCH_MIN_SCORE) return null;
+  return bestIdx;
+}
+
+/**
+ * GIZ: after the standalone heading paragraph matching /key qualifications/i,
+ * consecutive body paragraphs (until Publications / References) map to
+ * key_qualifications[0], [1], … in order.
+ */
+export function keyQualificationBulletIndexFromDocOrder(
+  blocks: KqDocBlock[],
+  clickedParagraphIndex: number,
+  nBullets: number,
+): number | null {
+  if (nBullets <= 0) return null;
+  let phase: "before" | "in_kq" = "before";
+  let ordinal = 0;
+  for (const block of blocks) {
+    if (block.kind === "table") {
+      // Tables after the KQ heading (e.g. layout sections) must not abort —
+      // body-level paragraphs after them still map to bullets by ordinal.
+      continue;
+    }
+    const t = block.text.trim();
+    if (!t) continue;
+    if (phase === "before") {
+      // Heading variants (template may prefix with "11." etc.).
+      if (
+        /\bkey\s+qualifications\b/i.test(t) ||
+        /^\s*\d+\.?\s*key\s+qualifications\b/i.test(t)
+      ) {
+        phase = "in_kq";
+      }
+      continue;
+    }
+    if (/^(publications?|references)\b/i.test(t)) break;
+    if (block.paragraphIndex === clickedParagraphIndex) {
+      return ordinal < nBullets ? ordinal : null;
+    }
+    ordinal += 1;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Other relevant information — single scalar, may span multiple <w:p>
+// ---------------------------------------------------------------------------
+
+const ORI_TEXT_MATCH_MIN_SCORE = 35;
+
+/** Trimmed `other_relevant_info` from session output (generated payload). */
+export function effectiveOtherRelevantInfo(cv: CVDataLite | undefined): string {
+  if (!cv) return "";
+  const v = cv.other_relevant_info;
+  if (typeof v !== "string") return "";
+  return v.trim();
+}
+
+/**
+ * True if clicked text belongs to the stored ORI body (substring / word overlap).
+ */
+export function matchParagraphToOtherRelevantInfo(
+  paragraphText: string,
+  otherRelevantInfo: string,
+): boolean {
+  const o = normalizeWhitespace(otherRelevantInfo).toLowerCase();
+  const p0 = stripBulletPrefix(paragraphText);
+  const p = normalizeWhitespace(p0).toLowerCase();
+  if (!p || !o) return false;
+  if (p === o) return true;
+  if (o.includes(p)) return true;
+  if (p.includes(o) && o.length >= 12) return true;
+  const pw = new Set(p.split(/\s+/).filter((w) => w.length > 1));
+  const ow = new Set(o.split(/\s+/).filter((w) => w.length > 1));
+  if (pw.size === 0) return false;
+  let inter = 0;
+  for (const w of pw) {
+    if (ow.has(w)) inter += 1;
+  }
+  const union = pw.size + ow.size - inter;
+  const score = union > 0 ? Math.round((100 * inter) / union) : 0;
+  return score >= ORI_TEXT_MATCH_MIN_SCORE;
+}
+
+/**
+ * GIZ: paragraphs after the "Other relevant information" heading map to that field.
+ */
+export function paragraphInOtherRelevantSection(
+  blocks: KqDocBlock[],
+  clickedParagraphIndex: number,
+): boolean {
+  let phase: "before" | "in_ori" = "before";
+  for (const block of blocks) {
+    if (block.kind === "table") continue;
+    const t = block.text.trim();
+    if (!t) continue;
+    if (phase === "before") {
+      if (/\bother\s+relevant\s+information\b/i.test(t)) phase = "in_ori";
+      continue;
+    }
+    if (block.paragraphIndex === clickedParagraphIndex) return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // tasks_assigned runtime resolution
 // ---------------------------------------------------------------------------
 
@@ -414,6 +621,7 @@ export function resolveTasksAssignedPath(
 export function locatorToDotPath(
   locator: Locator,
   targetFormat: TargetFormat,
+  options?: LocatorToDotPathOptions,
 ): LocatorMappingResult {
   if (locator.location === "table") {
     const { table_index, row_index, cell_index } = locator;
@@ -433,16 +641,49 @@ export function locatorToDotPath(
     };
   }
 
-  // Paragraph — attempt to identify key_qualifications bullets heuristically.
+  // Paragraph — map to key_qualifications[i] using CV bullet text and/or GIZ
+  // section order. Never use raw paragraph_index as the array subscript.
   const text = locator.text_content.trim();
-  const kqPattern = /^[A-Z][a-z]+(?:ed|ing|s)\b/;
-  if (kqPattern.test(text)) {
+  const kqList = options?.keyQualifications ?? [];
+  let kqIdx: number | null =
+    kqList.length > 0 ? matchKeyQualificationIndex(text, kqList) : null;
+  if (kqIdx === null && targetFormat === "giz" && kqList.length > 0 && options?.docBlocks?.length) {
+    kqIdx = keyQualificationBulletIndexFromDocOrder(
+      options.docBlocks,
+      locator.paragraph_index,
+      kqList.length,
+    );
+  }
+  if (kqIdx !== null) {
     return {
       kind: "simple",
-      dotPath: `key_qualifications[${locator.paragraph_index}]`,
-      confidence: "fallback",
-      label: `Key qualification (paragraph ${locator.paragraph_index})`,
+      dotPath: `key_qualifications[${kqIdx}]`,
+      confidence: "mapped",
+      label: `Key qualification ${kqIdx + 1}`,
     };
+  }
+
+  const ori = options?.otherRelevantInfo?.trim();
+  if (ori) {
+    if (matchParagraphToOtherRelevantInfo(text, ori)) {
+      return {
+        kind: "simple",
+        dotPath: "other_relevant_info",
+        confidence: "mapped",
+        label: "Other relevant information",
+      };
+    }
+    if (
+      options?.docBlocks?.length &&
+      paragraphInOtherRelevantSection(options.docBlocks, locator.paragraph_index)
+    ) {
+      return {
+        kind: "simple",
+        dotPath: "other_relevant_info",
+        confidence: "mapped",
+        label: "Other relevant information",
+      };
+    }
   }
 
   return {

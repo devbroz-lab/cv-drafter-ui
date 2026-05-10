@@ -128,6 +128,8 @@ export interface CVDataLite {
 export interface FieldEditItem {
   field_path: string;
   instruction: string;
+  /** Clicked text from DocxViewer — backend resolves placeholder paths like paragraph_<n>. */
+  anchor_text?: string;
 }
 
 export interface SkippedEditItem {

@@ -22,13 +22,16 @@
  */
 
 import JSZip from "jszip";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { CVDataLite, CompositeCellOption, FieldEditItem, TargetFormat } from "../lib/types";
 import {
+  effectiveKeyQualifications,
+  effectiveOtherRelevantInfo,
   locatorToDotPath,
   resolveTasksAssignedPath,
 } from "../lib/utils/locatorToDotPath";
+import type { LocatorToDotPathOptions } from "../lib/utils/locatorToDotPath";
 import type { Locator as UtilLocator } from "../lib/utils/locatorToDotPath";
 import { FieldSelectorTooltip } from "./FieldSelectorTooltip";
 
@@ -440,6 +443,23 @@ export function DocxViewer(props: DocxViewerProps) {
 
   const tableLabels = targetFormat === "giz" ? GIZ_TABLE_LABELS : WB_TABLE_LABELS;
 
+  /** Maps paragraph clicks to key_qualifications / other_relevant_info / paths. */
+  const locatorDotPathOptions = useMemo((): LocatorToDotPathOptions => {
+    const kq = effectiveKeyQualifications(cvData);
+    const ori = effectiveOtherRelevantInfo(cvData);
+    const opts: LocatorToDotPathOptions = {};
+    if (kq.length > 0) opts.keyQualifications = kq;
+    if (ori) opts.otherRelevantInfo = ori;
+    if (blocks.length > 0) {
+      opts.docBlocks = blocks.map((b) =>
+        b.kind === "paragraph"
+          ? { kind: "paragraph" as const, paragraphIndex: b.paragraphIndex, text: b.text }
+          : { kind: "table" as const, tableIndex: b.tableIndex },
+      );
+    }
+    return opts;
+  }, [cvData, targetFormat, blocks]);
+
   const referencedKeys = new Set([
     ...references.map((r) => locKey(r.locator)),
     ...fieldEdits.map((e) => locKey(e.locator)),
@@ -481,7 +501,16 @@ export function DocxViewer(props: DocxViewerProps) {
   // Notify parent when edits change.
   const notifyEditsChange = useCallback((edits: FieldEditEntry[]) => {
     if (props.mode === "field_editor") {
-      props.onEditsChange(edits.map((e) => ({ field_path: e.dotPath, instruction: e.instruction })));
+      props.onEditsChange(
+        edits.map((e) => {
+          const t = e.locator.text_content?.trim();
+          return {
+            field_path: e.dotPath,
+            instruction: e.instruction,
+            ...(t ? { anchor_text: t } : {}),
+          };
+        }),
+      );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props]);
@@ -500,7 +529,7 @@ export function DocxViewer(props: DocxViewerProps) {
       const existingEdit = fieldEdits.find((e) => locKey(e.locator) === locKey(locator));
       if (fieldEdits.length >= 5 && !existingEdit) return;
 
-      const result = locatorToDotPath(locator as UtilLocator, targetFormat);
+      const result = locatorToDotPath(locator as UtilLocator, targetFormat, locatorDotPathOptions);
 
       let tooltipOptions: CompositeCellOption[];
       let cellLabel = result.label;
@@ -535,7 +564,7 @@ export function DocxViewer(props: DocxViewerProps) {
         initialSelectedOption,
       });
     },
-    [mode, fieldEdits, targetFormat, cvData],
+    [mode, fieldEdits, targetFormat, cvData, locatorDotPathOptions],
   );
 
   // ---------------------------------------------------------------------------
@@ -629,6 +658,7 @@ export function DocxViewer(props: DocxViewerProps) {
     const result = locatorToDotPath(
       { location: "table", table_index: tableIndex, row_index: rowIndex, cell_index: cellIndex, text_content: "" },
       targetFormat,
+      locatorDotPathOptions,
     );
     return result.kind === "composite" || result.kind === "tasks_assigned";
   }

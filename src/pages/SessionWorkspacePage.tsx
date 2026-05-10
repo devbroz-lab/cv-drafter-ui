@@ -231,6 +231,13 @@ export function SessionWorkspacePage() {
     if (!accessToken) return;
     setViewerLoading(true);
     try {
+      // Field editor needs cv_data (GET /output) so key_qualifications paths resolve.
+      if (mode === "field_editor") {
+        await qc.ensureQueryData({
+          queryKey: ["output", sessionId, accessToken],
+          queryFn: () => getOutput(accessToken, sessionId),
+        });
+      }
       const { signed_url } = await getOutputDownloadUrl(accessToken, sessionId);
       setViewerDocxUrl(signed_url);
       setViewerMode(mode);
@@ -240,7 +247,7 @@ export function SessionWorkspacePage() {
     } finally {
       setViewerLoading(false);
     }
-  }, [accessToken, sessionId, toast]);
+  }, [accessToken, qc, sessionId, toast]);
 
   // ── Field editor / batch state ─────────────────────────────────────────────
 
