@@ -76,12 +76,8 @@ type TooltipState = {
   cellLabel: string;
   options: CompositeCellOption[];
   locator: Locator;
-  /** Set when re-opening an already-batched edit for modification */
-  existingEntryId?: string;
-  initialInstruction?: string;
-  initialSelectedOption?: CompositeCellOption;
-  /** For tasks_assigned cells that need a resolved path injected back */
-  resolvedSinglePath?: string;
+  /** Prefill multi-card instructions when re-opening an edited composite cell */
+  initialInstructionsByPath?: Record<string, string>;
 };
 
 function locKey(l: Locator): string {
@@ -416,6 +412,9 @@ export function DocxViewer(props: DocxViewerProps) {
   } = props;
   const mode = props.mode ?? "reference";
 
+  const docxUrl = "docxUrl" in props && props.docxUrl ? props.docxUrl : undefined;
+  const docxBuffer = "docxBuffer" in props && props.docxBuffer !== undefined ? props.docxBuffer : undefined;
+
   const [blocks, setBlocks] = useState<ParsedBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -467,11 +466,18 @@ export function DocxViewer(props: DocxViewerProps) {
 
   const activeKey = tooltipState ? locKey(tooltipState.locator) : null;
 
-  // Maps each edited cell's key to its color index (0-4) so both the document
-  // highlight and the sidebar card share the same color.
-  const editColorMap = new Map(fieldEdits.map((e, i) => [locKey(e.locator), i]));
+  // Maps each edited cell's key to its color index (0-4) so all edits originating
+  // from the same cell share a color (even if multiple sub-fields are edited).
+  const editColorMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of fieldEdits) {
+      const k = locKey(e.locator);
+      if (!map.has(k)) map.set(k, map.size);
+    }
+    return map;
+  }, [fieldEdits]);
 
-  // Load document
+  // Load document — re-run when the signed URL or buffer changes (e.g. new render after field-edit).
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -480,12 +486,14 @@ export function DocxViewer(props: DocxViewerProps) {
     (async () => {
       try {
         let ab: ArrayBuffer;
-        if (props.docxBuffer !== undefined) {
-          ab = props.docxBuffer;
-        } else {
-          const res = await fetch((props as DocxViewerUrlProps | DocxViewerUrlFieldEditorProps).docxUrl);
+        if (docxBuffer !== undefined) {
+          ab = docxBuffer;
+        } else if (docxUrl !== undefined) {
+          const res = await fetch(docxUrl, { cache: "no-store" });
           if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
           ab = await res.arrayBuffer();
+        } else {
+          throw new Error("DocxViewer: missing docxUrl and docxBuffer");
         }
         const parsed = await loadBlocksFromBuffer(ab);
         if (!cancelled) { setBlocks(parsed); setLoading(false); }
@@ -495,8 +503,7 @@ export function DocxViewer(props: DocxViewerProps) {
     })();
 
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [docxUrl, docxBuffer]);
 
   // Notify parent when edits change.
   const notifyEditsChange = useCallback((edits: FieldEditEntry[]) => {
@@ -526,8 +533,11 @@ export function DocxViewer(props: DocxViewerProps) {
         return;
       }
 
-      const existingEdit = fieldEdits.find((e) => locKey(e.locator) === locKey(locator));
-      if (fieldEdits.length >= 5 && !existingEdit) return;
+      const k = locKey(locator);
+      const existingForThisCell = fieldEdits.filter((e) => locKey(e.locator) === k);
+      const isReEditingThisCell = existingForThisCell.length > 0;
+      // If at max, still allow re-editing an already-added cell (no net new edits).
+      if (fieldEdits.length >= 5 && !isReEditingThisCell) return;
 
       const result = locatorToDotPath(locator as UtilLocator, targetFormat, locatorDotPathOptions);
 
@@ -549,9 +559,12 @@ export function DocxViewer(props: DocxViewerProps) {
 
       if (tooltipOptions.length === 0) return;
 
-      const initialSelectedOption = existingEdit
-        ? (tooltipOptions.find((o) => o.dotPath === existingEdit.dotPath) ?? tooltipOptions[0])
-        : undefined;
+      const initialInstructionsByPath =
+        tooltipOptions.length > 1
+          ? Object.fromEntries(
+              existingForThisCell.map((e) => [e.dotPath, e.instruction] as const),
+            )
+          : undefined;
 
       setTooltipState({
         anchorX: mouseEvent.clientX,
@@ -559,9 +572,7 @@ export function DocxViewer(props: DocxViewerProps) {
         cellLabel,
         options: tooltipOptions,
         locator,
-        existingEntryId: existingEdit?.id,
-        initialInstruction: existingEdit?.instruction,
-        initialSelectedOption,
+        initialInstructionsByPath,
       });
     },
     [mode, fieldEdits, targetFormat, cvData, locatorDotPathOptions],
@@ -574,30 +585,30 @@ export function DocxViewer(props: DocxViewerProps) {
   const handleTooltipAdd = useCallback(
     (entry: { dotPath: string; instruction: string; locatorLabel: string }) => {
       if (!tooltipState) return;
-      const { locator, existingEntryId } = tooltipState;
+      const { locator } = tooltipState;
       setTooltipState(null);
 
       setFieldEdits((prev) => {
-        let next: FieldEditEntry[];
-        if (existingEntryId) {
-          next = prev.map((e) =>
-            e.id === existingEntryId
-              ? { ...e, dotPath: entry.dotPath, label: entry.locatorLabel, instruction: entry.instruction }
-              : e,
-          );
-        } else {
-          next = [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              locator,
-              dotPath: entry.dotPath,
-              confidence: "mapped",
-              label: entry.locatorLabel,
-              instruction: entry.instruction,
-            },
-          ];
-        }
+        const k = locKey(locator);
+        const existingSameField = prev.find((e) => locKey(e.locator) === k && e.dotPath === entry.dotPath);
+
+        const next: FieldEditEntry[] = existingSameField
+          ? prev.map((e) =>
+              e.id === existingSameField.id
+                ? { ...e, label: entry.locatorLabel, instruction: entry.instruction }
+                : e,
+            )
+          : [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                locator,
+                dotPath: entry.dotPath,
+                confidence: "mapped",
+                label: entry.locatorLabel,
+                instruction: entry.instruction,
+              },
+            ];
         notifyEditsChange(next);
         return next;
       });
@@ -872,7 +883,7 @@ export function DocxViewer(props: DocxViewerProps) {
                       key={entry.id}
                       entry={entry}
                       index={i}
-                      colorIndex={i}
+                      colorIndex={editColorMap.get(locKey(entry.locator)) ?? i}
                       onInstructionChange={updateInstruction}
                       onRemove={removeFieldEdit}
                     />
@@ -957,9 +968,7 @@ export function DocxViewer(props: DocxViewerProps) {
           cellLabel={tooltipState.cellLabel}
           options={tooltipState.options}
           batchSize={fieldEdits.length}
-          isEditing={!!tooltipState.existingEntryId}
-          initialSelectedOption={tooltipState.initialSelectedOption}
-          initialInstruction={tooltipState.initialInstruction}
+          initialInstructionsByPath={tooltipState.initialInstructionsByPath}
           onAdd={handleTooltipAdd}
           onCancel={handleTooltipCancel}
         />

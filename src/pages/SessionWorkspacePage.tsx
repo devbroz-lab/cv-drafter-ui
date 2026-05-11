@@ -227,6 +227,19 @@ export function SessionWorkspacePage() {
     prevRoundRef.current = currentRound;
   }, [statusQuery.data?.round, showViewer, accessToken, sessionId]);
 
+  const prevStatusForViewerRef = useRef<SessionStatus | undefined>(undefined);
+  useEffect(() => {
+    const prev = prevStatusForViewerRef.current;
+    prevStatusForViewerRef.current = st;
+    // After field-edit, round increments before the new .docx exists; output_storage_key updates
+    // when Phase 4 finishes. Refresh the signed URL so an open viewer does not keep the old file.
+    if (prev === "processing" && st === "completed" && showViewer && accessToken && sessionId) {
+      void getOutputDownloadUrl(accessToken, sessionId)
+        .then(({ signed_url }) => setViewerDocxUrl(signed_url))
+        .catch(() => {/* non-fatal */});
+    }
+  }, [st, showViewer, accessToken, sessionId]);
+
   const openViewer = useCallback(async (mode: "reference" | "field_editor") => {
     if (!accessToken) return;
     setViewerLoading(true);
@@ -271,7 +284,10 @@ export function SessionWorkspacePage() {
         setShowViewer(false);
         setViewerDocxUrl(null);
         setLastEditResult(null);
-        toast(`${applied.length} edit${applied.length !== 1 ? "s" : ""} applied.`);
+        toast(
+          `${applied.length} edit${applied.length !== 1 ? "s" : ""} saved. ` +
+            "The Word file updates after rendering finishes (status returns to completed); open View or Download again then.",
+        );
       } else {
         setLastEditResult(data);
         toast(`${applied.length} applied, ${skipped.length} skipped — see details below.`, "error");
@@ -602,6 +618,7 @@ export function SessionWorkspacePage() {
       {/* DocxViewer — opens as centered modal (reference or field_editor mode) */}
       {showViewer && viewerDocxUrl && (
         <DocxViewer
+          key={viewerDocxUrl}
           docxUrl={viewerDocxUrl}
           mode={viewerMode}
           targetFormat={statusQuery.data?.target_format ?? "giz"}
