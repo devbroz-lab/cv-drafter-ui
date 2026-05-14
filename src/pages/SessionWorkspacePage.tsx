@@ -438,18 +438,30 @@ export function SessionWorkspacePage() {
           </Card>
         )}
 
-      {/* Checkpoint 1: manual ToR selection */}
+      {/* Checkpoint 1: manual ToR / SN selection */}
       {st === "checkpoint_1_pending" && (
         <Card className="border-[var(--color-border)]/80 bg-[var(--color-bg)]/35">
           <h2 className="text-lg font-medium text-[var(--color-text)]">
-            Checkpoint 1 — Select ToR role
+            {statusQuery.data?.target_format === "world_bank"
+              ? "Checkpoint 1 — Select Statement of Need (SN)"
+              : "Checkpoint 1 — Select ToR role"}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-muted)]">
-            Choose the best-matching expert pool from the ToR. Once selected and approved, the
-            pipeline continues automatically.
+            {statusQuery.data?.target_format === "world_bank" ? (
+              <>
+                Choose the SN from the ToR that matches this consultant. After you continue, later
+                checkpoints run automatically.
+              </>
+            ) : (
+              <>
+                Choose the best-matching expert pool from the ToR. Once selected and approved, the
+                pipeline continues automatically.
+              </>
+            )}
           </p>
           <TorPoolPicker
             sessionId={sessionId}
+            targetFormat={statusQuery.data?.target_format ?? "giz"}
             onSuccess={() => {
               void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
               void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
