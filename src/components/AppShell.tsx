@@ -43,8 +43,21 @@ export function AppShell() {
           </Button>
         </div>
       </aside>
-      <main className={clsx("min-w-0 flex-1 bg-[var(--color-bg)]", isSessionWorkspace ? "p-4 lg:p-6" : "p-8")}>
-        <div className={clsx("mx-auto", isSessionWorkspace ? "max-w-none" : "max-w-3xl")}>
+      <main
+        className={clsx(
+          "min-w-0 flex-1 bg-[var(--color-bg)]",
+          isSessionWorkspace
+            ? "flex min-h-screen flex-col overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-9"
+            : "p-8",
+        )}
+      >
+        <div
+          className={clsx(
+            isSessionWorkspace
+              ? "my-auto ml-16 w-full min-w-0 max-w-[46rem] shrink-0 self-start sm:ml-24 lg:ml-32"
+              : "mx-auto w-full max-w-3xl",
+          )}
+        >
           <Outlet />
         </div>
       </main>

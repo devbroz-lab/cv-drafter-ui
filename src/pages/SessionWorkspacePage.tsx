@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { SessionOutputInsights } from "../components/session/SessionAIReview";
+import { SessionLivePipelineStrip, SessionPipelineTimeline } from "../components/session/SessionPipeline";
+import { SkippedEditsPanel } from "../components/session/SkippedEditsPanel";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import {
@@ -17,11 +21,7 @@ import { upsertRecentSession } from "../lib/recentSessions";
 import type {
   FieldEditItem,
   FieldEditResponse,
-  HighSeverityIssue,
-  LowSeverityIssue,
-  OutputResponse,
   SessionStatus,
-  SkippedEditItem,
 } from "../lib/types";
 
 import { DocxViewer } from "../components/DocxViewer";
@@ -72,6 +72,7 @@ export function SessionWorkspacePage() {
   const { accessToken } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const reduceMotion = useReducedMotion();
 
   // ── Remote data ────────────────────────────────────────────────────────────
 
@@ -326,10 +327,13 @@ export function SessionWorkspacePage() {
 
   // ── Misc ───────────────────────────────────────────────────────────────────
 
-  const headline = useMemo(() => {
-    if (!statusQuery.data) return "Loading session…";
-    return `Session · ${statusQuery.data.source_filename}`;
+  const workspaceTitle = useMemo(() => {
+    if (!statusQuery.data) return "Loading…";
+    return statusQuery.data.source_filename || statusQuery.data.session_id || "Session";
   }, [statusQuery.data]);
+
+  const fileLabel =
+    statusQuery.data?.source_filename || statusQuery.data?.session_id || sessionId || "Document";
 
   if (!sessionId)
     return (
@@ -343,274 +347,305 @@ export function SessionWorkspacePage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  const showLiveStrip = st !== "completed" && st !== "failed";
+
   const sessionContent = (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      {/* Page header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <Link className="text-xs text-[var(--color-accent)] hover:underline" to="/">
-            ← Home
-          </Link>
-          <h1 className="mt-2 text-xl font-semibold text-[var(--color-text)]">{headline}</h1>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--color-text-muted)]">
-            <span>ID: {sessionId}</span>
-            <span>·</span>
-            <span>Status: {statusQuery.data?.status ?? "…"}</span>
-            <span>·</span>
-            <span>Format: {statusQuery.data?.target_format ?? "…"}</span>
-            <span>·</span>
-            <span>Round: {statusQuery.data?.round ?? "…"}</span>
-          </div>
-        </div>
-      </div>
-
-      {st !== "completed" && st !== "failed" && (
-        <Card className="space-y-4 border-[var(--color-border)]/80 bg-[var(--color-bg)]/35">
+    <div className="session-workspace-root w-full min-w-0">
+      <motion.div
+        className="flex w-full min-w-0 flex-col pb-14 pt-0 sm:pb-16 sm:pt-1"
+        initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <div className="session-composer-surface px-5 py-5 sm:px-7 sm:py-6">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="relative inline-flex h-5 w-5 items-center justify-center">
-                <span className="absolute inline-flex h-5 w-5 animate-ping rounded-full bg-[var(--color-accent)]/30" />
-                <span className="inline-flex h-2.5 w-2.5 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+            <Link
+              className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-accent)]"
+              to="/"
+            >
+              ← Home
+            </Link>
+            {showLiveStrip && (
+              <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-muted)]/75">
+                In progress
               </span>
-              <div>
-              <h2 className="text-sm font-semibold text-[var(--color-text)]">Pipeline progress</h2>
-              <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                Processing in background. Status updates every few seconds.
-              </p>
-              </div>
-            </div>
-            <span className="text-xs font-medium text-[var(--color-accent)]">
-              {progressForStatus(st)}%
-            </span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-surface-muted)]">
-            <div
-              className="h-full rounded-full bg-[var(--color-accent)] transition-all duration-700 ease-out"
-              style={{ width: `${progressForStatus(st)}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-xs">
-            <span className="text-[var(--color-text-muted)]">
-              Current stage:{" "}
-              <span className="font-medium text-[var(--color-text)]">
-                {(st ?? "starting").replace(/_/g, " ")}
-              </span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-[var(--color-accent)]">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-accent)]" />
-              Live
-            </span>
-          </div>
-        </Card>
-      )}
-
-      {/* Pipeline steps */}
-      {manifestQuery.data && (
-        <Card>
-          <h2 className="text-sm font-semibold text-[var(--color-text)]">Pipeline steps</h2>
-          <ul className="mt-3 max-h-[320px] space-y-1.5 overflow-y-auto text-xs">
-            {manifestQuery.data.steps.map((step) => (
-              <li
-                key={step.name}
-                className="flex justify-between rounded-lg bg-[var(--color-bg)] px-2 py-1.5"
-              >
-                <span className="text-[var(--color-text)]">{step.name}</span>
-                <span className="text-[var(--color-text-muted)]">{step.status}</span>
-              </li>
-            ))}
-          </ul>
-          {manifestQuery.data.checkpoint_pending && (
-            <p className="mt-3 text-xs text-[var(--color-accent)]">
-              Waiting on: <strong>{manifestQuery.data.checkpoint_pending}</strong>
-            </p>
-          )}
-        </Card>
-      )}
-      {st && st !== "queued" && manifestQuery.isError && (
-        <Card>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Manifest not available yet — pipeline starting.
-          </p>
-        </Card>
-      )}
-      {(st === "processing" || st?.startsWith("checkpoint_")) &&
-        manifestQuery.isLoading &&
-        !manifestQuery.data && (
-          <Card>
-            <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
-              <span className="inline-flex h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
-              Loading detailed pipeline steps…
-            </div>
-          </Card>
-        )}
-
-      {/* Checkpoint 1: manual ToR / SN selection */}
-      {st === "checkpoint_1_pending" && (
-        <Card className="border-[var(--color-border)]/80 bg-[var(--color-bg)]/35">
-          <h2 className="text-lg font-medium text-[var(--color-text)]">
-            {statusQuery.data?.target_format === "world_bank"
-              ? "Checkpoint 1 — Select Statement of Need (SN)"
-              : "Checkpoint 1 — Select ToR role"}
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-muted)]">
-            {statusQuery.data?.target_format === "world_bank" ? (
-              <>
-                Choose the SN from the ToR that matches this consultant. After you continue, later
-                checkpoints run automatically.
-              </>
-            ) : (
-              <>
-                Choose the best-matching expert pool from the ToR. Once selected and approved, the
-                pipeline continues automatically.
-              </>
             )}
-          </p>
-          <TorPoolPicker
-            sessionId={sessionId}
-            targetFormat={statusQuery.data?.target_format ?? "giz"}
-            onSuccess={() => {
-              void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
-              void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
-              toast("Checkpoint 1 approved.");
-            }}
-            onError={(msg) => toast(msg, "error")}
-          />
-        </Card>
-      )}
+          </div>
 
-      {/* Checkpoints 2–3: auto-approved — brief status only */}
-      {(st === "checkpoint_2_pending" || st === "checkpoint_3_pending") && (
-        <Card className="border-[var(--color-border)]/80 bg-[var(--color-bg)]/35">
-          <h2 className="text-lg font-medium text-[var(--color-text)]">Preparing your document</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-muted)]">
-            Remaining checkpoints run automatically. When rendering finishes, this page will show{" "}
-            <strong className="text-[var(--color-text)]">Completed</strong> with download and viewer
-            options.
+          <h1 className="mt-4 text-2xl font-semibold tracking-[-0.035em] text-[var(--color-text)] sm:mt-5 sm:text-[2rem] sm:leading-[1.12]">
+            {workspaceTitle}
+          </h1>
+          <p className="mt-2 max-w-[34rem] text-[14px] leading-[1.6] text-[var(--color-text-muted)]">
+            Live pipeline for your CV — every stage streams here until your Word deliverable is ready.
           </p>
-          <p className="mt-3 text-xs text-[var(--color-text-muted)]">
-            Current step:{" "}
-            <span className="font-medium text-[var(--color-accent)]">
-              {st.replace(/_/g, " ")}
+
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {[
+              { k: "Status", v: statusQuery.data?.status ?? "…" },
+              { k: "Format", v: statusQuery.data?.target_format ?? "…" },
+              { k: "Round", v: String(statusQuery.data?.round ?? "…") },
+            ].map((pill) => (
+              <span
+                key={pill.k}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.035] px-2.5 py-1 text-[10px] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]"
+              >
+                <span className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">
+                  {pill.k}
+                </span>
+                <span className="font-medium tabular-nums text-[var(--color-text)]">{pill.v}</span>
+              </span>
+            ))}
+            <span className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-white/[0.05] bg-white/[0.025] px-2.5 py-1 text-[10px] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+              <span className="shrink-0 font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">
+                Session
+              </span>
+              <code className="min-w-0 truncate font-mono text-[9px] text-[var(--color-text-muted)]/95">
+                {sessionId}
+              </code>
             </span>
-          </p>
-        </Card>
-      )}
+          </div>
 
-      {/* Skipped edits notice — shown as soon as field-edit responds, stays until dismissed */}
-      {lastEditResult && lastEditResult.skipped.length > 0 && (
-        <SkippedEditsCard
-          result={lastEditResult}
-          canReEdit={st === "completed"}
-          onApproveAnyway={handleApproveAnyway}
-          onCancelReEdit={handleCancelReEdit}
-        />
-      )}
-
-      {/* Completed */}
-      {st === "completed" && (
-        <>
-          {outputQuery.data && (
-            <Card>
-              <h2 className="text-lg font-medium text-[var(--color-text)]">Completed</h2>
-
-              <OutputSummary data={outputQuery.data} />
-
-              {/* Action buttons */}
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button
-                  type="button"
-                  disabled={downloading}
-                  onClick={() => void runDownload()}
+          {showLiveStrip && (
+            <>
+              <div className="session-composer-divider my-5 sm:my-5" aria-hidden />
+              <AnimatePresence initial={false} mode="popLayout">
+                <motion.div
+                  key="live-strip"
+                  initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
+                  transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  {downloading ? "Opening…" : "Download formatted Word"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={viewerLoading || (showViewer && viewerMode === "reference")}
-                  onClick={() => void openViewer("reference")}
-                >
-                  {viewerLoading && viewerMode !== "field_editor"
-                    ? "Loading…"
-                    : showViewer && viewerMode === "reference"
-                    ? "Viewer open →"
-                    : "View Document"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={viewerLoading || (showViewer && viewerMode === "field_editor")}
-                  onClick={() => void openViewer("field_editor")}
-                >
-                  {viewerLoading && viewerMode === "field_editor"
-                    ? "Loading…"
-                    : showViewer && viewerMode === "field_editor"
-                    ? "Edit viewer open →"
-                    : "Edit Document"}
-                </Button>
-              </div>
+                  <SessionLivePipelineStrip
+                    embedded
+                    status={st}
+                    progressPct={progressForStatus(st)}
+                    fileLabel={fileLabel}
+                  />
+                </motion.div>
+              </AnimatePresence>
+            </>
+          )}
+        </div>
 
-              {/* Pending edits batch (visible when viewer is open in field_editor mode) */}
-              {showViewer && viewerMode === "field_editor" && (
-                <div className="mt-6 space-y-3">
-                  {pendingEdits.length > 0 && (
-                    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-xs">
-                      <p className="font-semibold text-[var(--color-text)]">
-                        Queued edits ({pendingEdits.length}/5)
-                      </p>
-                      <ul className="mt-2 space-y-1.5">
-                        {pendingEdits.map((e, i) => (
-                          <li key={i} className="flex gap-2 text-[var(--color-text-muted)]">
-                            <code className="shrink-0 text-[var(--color-accent)]">{e.field_path}</code>
-                            <span className="truncate opacity-70">
-                              {e.instruction || "(no instruction yet)"}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+        <div className="mt-7 flex flex-col gap-7 sm:mt-8 sm:gap-8">
+          <SessionPipelineTimeline
+            manifest={manifestQuery.data}
+            sessionStatus={st}
+            manifestLoading={manifestQuery.isLoading}
+            manifestError={manifestQuery.isError}
+          />
+
+          {st === "checkpoint_1_pending" && (
+            <motion.div
+              key="cp1"
+              initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Card tone="session">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">
+                  Human gate
+                </p>
+                <h2 className="mt-1 text-lg font-semibold tracking-tight text-[var(--color-text)]">
+                  {statusQuery.data?.target_format === "world_bank"
+                    ? "Select Statement of Need"
+                    : "Select ToR role"}
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-muted)]">
+                  {statusQuery.data?.target_format === "world_bank" ? (
+                    <>
+                      Choose the SN from the ToR that matches this consultant. Later checkpoints resume
+                      automatically once you continue.
+                    </>
+                  ) : (
+                    <>
+                      Choose the expert pool that best reflects this role. The remaining workflow continues on its
+                      own after approval.
+                    </>
                   )}
-
-                  {pendingEdits.length > 0 && pendingEdits.some((e) => !e.instruction.trim()) && (
-                    <p className="text-xs text-amber-300">
-                      All edits need an instruction before submitting.
-                    </p>
-                  )}
+                </p>
+                <div className="mt-6">
+                  <TorPoolPicker
+                    sessionId={sessionId}
+                    targetFormat={statusQuery.data?.target_format ?? "giz"}
+                    onSuccess={() => {
+                      void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
+                      void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
+                      toast("Checkpoint 1 approved.");
+                    }}
+                    onError={(msg) => toast(msg, "error")}
+                  />
                 </div>
+              </Card>
+            </motion.div>
+          )}
+
+          {(st === "checkpoint_2_pending" || st === "checkpoint_3_pending") && (
+            <motion.div
+              key="cp-auto"
+              initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card tone="session">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+                  Autopilot
+                </p>
+                <h2 className="mt-1 text-lg font-semibold tracking-tight text-[var(--color-text)]">
+                  Finishing touches
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-muted)]">
+                  Later checkpoints are running automatically. When rendering completes, you&apos;ll see{" "}
+                  <span className="font-medium text-[var(--color-text)]">Completed</span> with download and viewer
+                  actions unlocked.
+                </p>
+                <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-[var(--color-text-muted)] ring-1 ring-white/[0.06]">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-accent)]" />
+                  <span className="font-medium capitalize text-[var(--color-accent)]">{st.replace(/_/g, " ")}</span>
+                </p>
+              </Card>
+            </motion.div>
+          )}
+
+          {lastEditResult && lastEditResult.skipped.length > 0 && (
+            <SkippedEditsPanel
+              result={lastEditResult}
+              canReEdit={st === "completed"}
+              onApproveAnyway={handleApproveAnyway}
+              onCancelReEdit={handleCancelReEdit}
+            />
+          )}
+
+          {st === "completed" && (
+            <>
+              {outputQuery.data && (
+                <motion.div
+                  key="done"
+                  initial={reduceMotion ? false : { opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <Card tone="session">
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                      <div className="min-w-0 max-w-xl">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300/90">
+                          Deliverable ready
+                        </p>
+                        <h2 className="mt-1.5 text-xl font-semibold tracking-[-0.02em] text-[var(--color-text)] sm:text-2xl">
+                          Your formatted CV is complete
+                        </h2>
+                        <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-muted)]">
+                          Download a print-ready Word export or open the viewer to reference or refine fields inline.
+                        </p>
+                      </div>
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 ring-1 ring-emerald-400/30">
+                        <svg viewBox="0 0 24 24" className="h-6 w-6 text-emerald-300" aria-hidden>
+                          <path
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+
+                    <SessionOutputInsights data={outputQuery.data} />
+
+                    <div className="mt-9 flex flex-wrap gap-3 sm:mt-10">
+                      <Button type="button" disabled={downloading} onClick={() => void runDownload()}>
+                        {downloading ? "Opening…" : "Download Word"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={viewerLoading || (showViewer && viewerMode === "reference")}
+                        onClick={() => void openViewer("reference")}
+                      >
+                        {viewerLoading && viewerMode !== "field_editor"
+                          ? "Loading…"
+                          : showViewer && viewerMode === "reference"
+                          ? "Viewer open →"
+                          : "View"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={viewerLoading || (showViewer && viewerMode === "field_editor")}
+                        onClick={() => void openViewer("field_editor")}
+                      >
+                        {viewerLoading && viewerMode === "field_editor"
+                          ? "Loading…"
+                          : showViewer && viewerMode === "field_editor"
+                          ? "Editor open →"
+                          : "Edit fields"}
+                      </Button>
+                    </div>
+
+                    {showViewer && viewerMode === "field_editor" && (
+                      <motion.div
+                        className="mt-8 space-y-3"
+                        initial={reduceMotion ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        {pendingEdits.length > 0 && (
+                          <div className="rounded-xl bg-black/30 p-4 ring-1 ring-white/[0.06]">
+                            <p className="text-xs font-semibold text-[var(--color-text)]">
+                              Queued edits ({pendingEdits.length}/5)
+                            </p>
+                            <ul className="mt-2 space-y-1.5">
+                              {pendingEdits.map((e, i) => (
+                                <li key={i} className="flex gap-2 text-xs text-[var(--color-text-muted)]">
+                                  <code className="shrink-0 text-[var(--color-accent)]">{e.field_path}</code>
+                                  <span className="truncate opacity-80">
+                                    {e.instruction || "(add instruction)"}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {pendingEdits.length > 0 && pendingEdits.some((e) => !e.instruction.trim()) && (
+                          <p className="text-xs text-amber-200/90">
+                            Each queued edit needs an instruction before submit.
+                          </p>
+                        )}
+                      </motion.div>
+                    )}
+                  </Card>
+                </motion.div>
               )}
-            </Card>
+              {!outputQuery.data && outputQuery.isLoading && (
+                <Card tone="session" className="relative overflow-hidden">
+                  {!reduceMotion && (
+                    <div className="session-shimmer pointer-events-none absolute inset-0 opacity-30" aria-hidden />
+                  )}
+                  <p className="relative text-sm text-[var(--color-text-muted)]">Preparing insights and download…</p>
+                </Card>
+              )}
+            </>
           )}
-          {!outputQuery.data && outputQuery.isLoading && (
-            <Card>
-              <p className="text-sm text-[var(--color-text-muted)]">Loading output…</p>
-            </Card>
+
+          {st === "failed" && statusQuery.data?.error_message && (
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card tone="session" className="border-red-500/25 ring-1 ring-red-500/20">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-red-300/90">Run stopped</p>
+                <h2 className="mt-1 text-lg font-semibold text-red-100/95">Pipeline could not finish</h2>
+                <pre className="mt-4 max-h-[min(360px,50vh)] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-relaxed text-[var(--color-text-muted)] ring-1 ring-white/[0.05] editor-scrollbar">
+                  {statusQuery.data.error_message}
+                </pre>
+              </Card>
+            </motion.div>
           )}
-        </>
-      )}
-
-      {/* Failed */}
-      {st === "failed" && statusQuery.data?.error_message && (
-        <Card>
-          <h2 className="text-lg font-medium text-red-300">Failed</h2>
-          <pre className="mt-4 whitespace-pre-wrap text-sm text-[var(--color-text-muted)]">
-            {statusQuery.data.error_message}
-          </pre>
-        </Card>
-      )}
-
-      {/* Processing / queued */}
-      {(st === "queued" || st === "processing") && (
-        <Card>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Pipeline is running. This page refreshes automatically. When the Word file is ready,
-            you&apos;ll see <strong className="text-[var(--color-text)]">Completed</strong>—no
-            checkpoint buttons required.
-          </p>
-        </Card>
-      )}
+        </div>
+      </motion.div>
     </div>
   );
-
   return (
     <>
       {sessionContent}
@@ -647,261 +682,3 @@ export function SessionWorkspacePage() {
     </>
   );
 }
-
-// ---------------------------------------------------------------------------
-// SkippedEditsCard — shown on completed when some field edits were skipped (optional follow-up)
-// ---------------------------------------------------------------------------
-
-function SkippedEditsCard({
-  result,
-  canReEdit,
-  onApproveAnyway,
-  onCancelReEdit,
-}: {
-  result: FieldEditResponse;
-  canReEdit: boolean;
-  onApproveAnyway: () => void;
-  onCancelReEdit: () => void;
-}) {
-  return (
-    <Card className="border-amber-800/40 bg-amber-950/10">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-sm font-semibold text-amber-300">Edit results</h2>
-        <span className="rounded bg-emerald-950/60 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-          {result.applied.length} applied
-        </span>
-        <span className="rounded bg-red-950/60 px-2 py-0.5 text-[10px] font-medium text-red-300">
-          {result.skipped.length} skipped
-        </span>
-      </div>
-
-      {result.applied.length > 0 && (
-        <div className="mt-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
-            Applied
-          </p>
-          <ul className="mt-1 space-y-0.5">
-            {result.applied.map((p) => (
-              <li key={p}>
-                <code className="text-xs text-emerald-300">{p}</code>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="mt-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-red-400">
-          Skipped — the agent could not apply these
-        </p>
-        <ul className="mt-2 space-y-2">
-          {result.skipped.map((p, i) => {
-            const item: SkippedEditItem = typeof p === "string" ? { path: p } : p;
-            return (
-              <li key={item.path ?? i} className="rounded-lg border border-red-900/30 bg-[var(--color-surface)] px-3 py-2">
-                <code className="text-xs text-red-300">{item.path}</code>
-                {item.reason && (
-                  <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
-                    <span className="font-medium text-[var(--color-text)]">Reason: </span>
-                    {item.reason}
-                  </p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-
-      <p className="mt-3 text-xs text-[var(--color-text-muted)]">
-        Applied edits are written and will appear in the re-rendered output.
-        {!canReEdit && " Waiting for re-render to complete before you can edit again."}
-      </p>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" onClick={onApproveAnyway}>
-          Dismiss
-        </Button>
-        {canReEdit && (
-          <Button type="button" variant="secondary" onClick={onCancelReEdit}>
-            Re-edit skipped fields
-          </Button>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ReviewInfoCard — AI review summary with solvability badges
-// ---------------------------------------------------------------------------
-
-function SolvabilityBadge({ solvability }: { solvability?: string }) {
-  if (!solvability) return null;
-  if (solvability === "pipeline")
-    return (
-      <span className="rounded bg-emerald-950/60 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
-        pipeline-fixable
-      </span>
-    );
-  return (
-    <span className="rounded bg-amber-950/60 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
-      needs human review
-    </span>
-  );
-}
-
-function ReviewInfoCard({ data }: { data: OutputResponse }) {
-  const review = data.review;
-  if (!review) return null;
-
-  const highs: HighSeverityIssue[] = review.high_severity ?? [];
-  const lows: LowSeverityIssue[] = review.low_severity ?? [];
-
-  if (highs.length === 0 && lows.length === 0) return null;
-
-  return (
-    <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4 space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="text-xs font-semibold text-[var(--color-text)]">AI Review Summary</p>
-        {review.passed ? (
-          <span className="rounded bg-emerald-950/60 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-            All checks passed
-          </span>
-        ) : (
-          <span className="rounded bg-amber-950/60 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-            {highs.length} flag{highs.length !== 1 ? "s" : ""} — for your awareness
-          </span>
-        )}
-        {lows.length > 0 && (
-          <span className="rounded bg-[var(--color-surface)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
-            {lows.length} style fix{lows.length !== 1 ? "es" : ""} auto-applied
-          </span>
-        )}
-      </div>
-
-      {/* High severity */}
-      {highs.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-red-400">
-            High-severity flags ({highs.length}) — review recommended
-          </p>
-          {highs.map((h, i) => (
-            <div
-              key={i}
-              className="rounded-lg border border-red-900/30 bg-[var(--color-surface)] p-3 text-xs space-y-1"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-red-300">Flag {i + 1}</span>
-                {(h.field ?? h.path) && (
-                  <code className="rounded bg-[var(--color-border)]/30 px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-accent)]">
-                    {h.field ?? h.path}
-                  </code>
-                )}
-                <SolvabilityBadge solvability={h.solvability} />
-                {h.solvability === "pipeline" && (
-                  <span className="text-[10px] text-emerald-400/70">
-                    — use Edit Document to fix
-                  </span>
-                )}
-              </div>
-              <p className="text-[var(--color-text)]">{h.issue ?? "—"}</p>
-              {h.recommendation && (
-                <p className="text-[var(--color-text-muted)]">
-                  <span className="font-medium text-[var(--color-text)]">Suggestion: </span>
-                  {h.recommendation}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Low severity */}
-      {lows.length > 0 && (
-        <details className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-xs">
-          <summary className="cursor-pointer font-medium text-[var(--color-text)]">
-            Style fixes applied automatically — {lows.length} items
-          </summary>
-          <ul className="mt-3 space-y-3 text-[var(--color-text-muted)]">
-            {lows.map((l, i) => (
-              <li
-                key={i}
-                className="border-t border-[var(--color-border)] pt-3 first:border-t-0 first:pt-0"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <p>{l.issue ?? "—"}</p>
-                  <SolvabilityBadge solvability={l.solvability} />
-                </div>
-                {(l.fixed ?? l.original) && (
-                  <details className="mt-1">
-                    <summary className="cursor-pointer text-xs text-[var(--color-text)]">
-                      Before / after
-                    </summary>
-                    <div className="mt-2 grid gap-2 text-xs">
-                      {l.original !== undefined && (
-                        <div>
-                          <span className="text-[var(--color-text)]">Original: </span>
-                          <span className="whitespace-pre-wrap">{String(l.original)}</span>
-                        </div>
-                      )}
-                      {l.fixed !== undefined && (
-                        <div>
-                          <span className="text-[var(--color-text)]">Fixed: </span>
-                          <span className="whitespace-pre-wrap">{String(l.fixed)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </details>
-                )}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// OutputSummary
-// ---------------------------------------------------------------------------
-
-function OutputSummary({ data }: { data: OutputResponse }) {
-  return (
-    <div className="mt-6 space-y-4 text-sm">
-      {data.compression && (
-        <details className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
-          <summary className="cursor-pointer text-xs font-semibold text-[var(--color-text)]">
-            Compression details
-          </summary>
-          <pre className="mt-3 max-h-[260px] overflow-auto whitespace-pre-wrap text-xs text-[var(--color-text-muted)]">
-            {JSON.stringify(data.compression, null, 2)}
-          </pre>
-        </details>
-      )}
-      {data.generation_warnings?.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-amber-300">Warnings</p>
-          <ul className="mt-1 list-inside list-disc text-[var(--color-text-muted)]">
-            {data.generation_warnings.map((w, i) => (
-              <li key={i}>{w}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* AI Review info card */}
-      <ReviewInfoCard data={data} />
-
-      <details className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
-        <summary className="cursor-pointer text-xs font-medium text-[var(--color-text)]">
-          Raw CV data (JSON)
-        </summary>
-        <pre className="mt-3 max-h-[400px] overflow-auto text-xs text-[var(--color-text-muted)]">
-          {JSON.stringify(data.cv_data, null, 2)}
-        </pre>
-      </details>
-    </div>
-  );
-}
-

@@ -33,6 +33,19 @@
     0 24px 48px -12px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06);
   /* Opaque popover (field picker) — avoids blur blending with bright canvas */
   --editor-popover-bg: linear-gradient(165deg, #2c2c30 0%, #222226 45%, #191a1f 100%);
+
+  /* Session workspace (pipeline / AI review) */
+  --session-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --session-surface: linear-gradient(
+    165deg,
+    rgba(52, 52, 56, 0.85) 0%,
+    rgba(38, 38, 42, 0.92) 42%,
+    rgba(28, 28, 32, 0.96) 100%
+  );
+  --session-glow-accent: rgba(217, 119, 87, 0.45);
+  --session-glow-success: rgba(52, 211, 153, 0.35);
+  --session-glow-warn: rgba(251, 191, 36, 0.28);
+  --session-glow-danger: rgba(248, 113, 113, 0.3);
 }
 
 body {
@@ -82,5 +95,155 @@ body {
   .editor-motion-safe {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* ── Session workspace ambient + motion (respects reduced motion) ─────── */
+/* Session page: one centered column width (shared grid with AppShell outlet) */
+.session-layout-column {
+  width: 100%;
+  max-width: 46rem; /* ~736px — editorial + pipeline without oceanic margins */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Hero + live progress: one anchored surface (not floating cards) */
+.session-composer-surface {
+  border-radius: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  background: linear-gradient(
+    165deg,
+    rgba(48, 48, 52, 0.55) 0%,
+    rgba(28, 28, 32, 0.72) 55%,
+    rgba(22, 22, 26, 0.85) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 18px 48px -28px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.session-composer-divider {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.09) 20%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.09) 80%,
+    transparent 100%
+  );
+}
+
+.session-live-embedded {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 40px -18px rgba(0, 0, 0, 0.55);
+}
+
+.session-workspace-root {
+  position: relative;
+  min-height: 100%;
+  isolation: isolate;
+}
+
+.session-workspace-root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 120% 70% at 50% -25%, rgba(217, 119, 87, 0.11), transparent 55%),
+    radial-gradient(ellipse 80% 55% at 50% 42%, rgba(255, 255, 255, 0.028), transparent 52%),
+    radial-gradient(ellipse 65% 50% at 100% 32%, rgba(99, 102, 241, 0.055), transparent 48%),
+    radial-gradient(ellipse 60% 45% at 0% 78%, rgba(45, 212, 191, 0.04), transparent 46%),
+    var(--color-bg);
+}
+
+.session-workspace-root::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 90% 65% at 50% 100%, rgba(0, 0, 0, 0.38), transparent 58%);
+  opacity: 0.55;
+}
+
+.session-surface-card {
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  background: var(--session-surface);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.035) inset,
+    0 20px 50px -22px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.session-timeline-spine {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.04) 45%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
+}
+
+.session-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.session-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.04) 45%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 55%,
+    transparent 100%
+  );
+  animation: session-shimmer-slide 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-shimmer::after {
+    animation: none;
+  }
+}
+
+@keyframes session-shimmer-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes session-pulse-ring {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-workspace-root::after {
+    opacity: 0.25;
+  }
+
+  .session-pulse-ring {
+    animation: none;
   }
 }
