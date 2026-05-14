@@ -14,6 +14,25 @@
   --color-accent-soft: rgba(217, 119, 87, 0.15);
   --color-danger: #f87171;
   --radius: 12px;
+
+  /* Document editor workspace (docked panel) */
+  --editor-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --editor-panel-bg: linear-gradient(
+    165deg,
+    rgba(46, 46, 48, 0.92) 0%,
+    rgba(28, 28, 32, 0.96) 45%,
+    rgba(22, 22, 26, 0.98) 100%
+  );
+  --editor-desk-bg: radial-gradient(
+      ellipse 100% 60% at 50% -15%,
+      rgba(217, 119, 87, 0.09),
+      transparent 55%
+    ),
+    linear-gradient(180deg, #1e2128 0%, #181a20 50%, #14161c 100%);
+  --editor-paper-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 24px 48px -12px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  /* Opaque popover (field picker) — avoids blur blending with bright canvas */
+  --editor-popover-bg: linear-gradient(165deg, #2c2c30 0%, #222226 45%, #191a1f 100%);
 }
 
 body {
@@ -29,4 +48,39 @@ body {
     Roboto,
     sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* ── Editor workspace scrollbars (WebKit + Firefox) ─────────────────────── */
+.editor-scrollbar {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(217, 119, 87, 0.35) transparent;
+}
+
+.editor-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.editor-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.editor-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 100px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.editor-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 119, 87, 0.45);
+  background-clip: padding-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor-motion-safe {
+    transition: none !important;
+    animation: none !important;
+  }
 }

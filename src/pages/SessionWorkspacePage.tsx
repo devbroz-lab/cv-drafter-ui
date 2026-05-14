@@ -25,6 +25,7 @@ import type {
 } from "../lib/types";
 
 import { DocxViewer } from "../components/DocxViewer";
+import { EditorSidePanel } from "../components/layout/EditorSidePanel";
 import { TorPoolPicker } from "../components/TorPoolPicker";
 import { Button, Card } from "../components/ui";
 
@@ -240,6 +241,14 @@ export function SessionWorkspacePage() {
     }
   }, [st, showViewer, accessToken, sessionId]);
 
+  const closeEditorPanel = useCallback(() => {
+    setShowViewer(false);
+  }, []);
+
+  const onEditorPanelExited = useCallback(() => {
+    setViewerDocxUrl(null);
+  }, []);
+
   const openViewer = useCallback(async (mode: "reference" | "field_editor") => {
     if (!accessToken) return;
     setViewerLoading(true);
@@ -282,7 +291,6 @@ export function SessionWorkspacePage() {
 
       if (skipped.length === 0) {
         setShowViewer(false);
-        setViewerDocxUrl(null);
         setLastEditResult(null);
         toast(
           `${applied.length} edit${applied.length !== 1 ? "s" : ""} saved. ` +
@@ -296,7 +304,6 @@ export function SessionWorkspacePage() {
     onError: (e) => {
       toast(formatApiError(e), "error");
       setShowViewer(false);
-      setViewerDocxUrl(null);
     },
   });
 
@@ -304,7 +311,6 @@ export function SessionWorkspacePage() {
   const handleApproveAnyway = useCallback(() => {
     setLastEditResult(null);
     setShowViewer(false);
-    setViewerDocxUrl(null);
   }, []);
 
   // "Cancel & re-edit" — re-open field editor; submit another /field-edit batch.
@@ -565,24 +571,6 @@ export function SessionWorkspacePage() {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap gap-3">
-                    <Button
-                      type="button"
-                      disabled={
-                        pendingEdits.length === 0 ||
-                        pendingEdits.some((e) => !e.instruction.trim()) ||
-                        fieldEditMut.isPending
-                      }
-                      onClick={() => fieldEditMut.mutate(pendingEdits)}
-                    >
-                      {fieldEditMut.isPending
-                        ? "Applying edits…"
-                        : pendingEdits.length === 0
-                        ? "Add edits in the viewer →"
-                        : `Submit ${pendingEdits.length} edit${pendingEdits.length !== 1 ? "s" : ""}`}
-                    </Button>
-                  </div>
-
                   {pendingEdits.length > 0 && pendingEdits.some((e) => !e.instruction.trim()) && (
                     <p className="text-xs text-amber-300">
                       All edits need an instruction before submitting.
@@ -627,31 +615,34 @@ export function SessionWorkspacePage() {
     <>
       {sessionContent}
 
-      {/* DocxViewer — opens as centered modal (reference or field_editor mode) */}
-      {showViewer && viewerDocxUrl && (
-        <DocxViewer
-          key={viewerDocxUrl}
-          docxUrl={viewerDocxUrl}
-          mode={viewerMode}
-          targetFormat={statusQuery.data?.target_format ?? "giz"}
-          cvData={outputQuery.data?.cv_data}
-          initialEdits={pendingEdits}
-          onSubmitEdits={
-            viewerMode === "field_editor" ? () => fieldEditMut.mutate(pendingEdits) : undefined
-          }
-          submitEditsDisabled={
-            viewerMode !== "field_editor" ||
-            pendingEdits.length === 0 ||
-            pendingEdits.some((e) => !e.instruction.trim()) ||
-            fieldEditMut.isPending
-          }
-          submitEditsBusy={viewerMode === "field_editor" && fieldEditMut.isPending}
-          onEditsChange={viewerMode === "field_editor" ? setPendingEdits : undefined as never}
-          onClose={() => {
-            setShowViewer(false);
-            setViewerDocxUrl(null);
-          }}
-        />
+      {/* Document viewer / field editor — right-hand panel (see EditorSidePanel) */}
+      {viewerDocxUrl && (
+        <EditorSidePanel
+          open={showViewer}
+          onClose={closeEditorPanel}
+          onExited={onEditorPanelExited}
+        >
+          <DocxViewer
+            key={viewerDocxUrl}
+            docxUrl={viewerDocxUrl}
+            mode={viewerMode}
+            targetFormat={statusQuery.data?.target_format ?? "giz"}
+            cvData={outputQuery.data?.cv_data}
+            initialEdits={pendingEdits}
+            onSubmitEdits={
+              viewerMode === "field_editor" ? () => fieldEditMut.mutate(pendingEdits) : undefined
+            }
+            submitEditsDisabled={
+              viewerMode !== "field_editor" ||
+              pendingEdits.length === 0 ||
+              pendingEdits.some((e) => !e.instruction.trim()) ||
+              fieldEditMut.isPending
+            }
+            submitEditsBusy={viewerMode === "field_editor" && fieldEditMut.isPending}
+            onEditsChange={viewerMode === "field_editor" ? setPendingEdits : (undefined as never)}
+            onClose={closeEditorPanel}
+          />
+        </EditorSidePanel>
       )}
     </>
   );
