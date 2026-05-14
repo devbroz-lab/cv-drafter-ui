@@ -5,7 +5,8 @@
  * (field_editor mode). Handles two cases:
  *
  *   1. Composite cell  — shows a labelled list of field options first, then
- *                        transitions to the instruction input after selection.
+ *                        transitions to the instruction input after the user
+ *                        picks one (same flow for 2 fields or 7).
  *   2. Simple cell     — skips directly to the instruction input (options
  *                        array has exactly one entry).
  *
@@ -72,7 +73,7 @@ export interface FieldSelectorTooltipProps {
   initialSelectedOption?: CompositeCellOption;
   /** Pre-filled instruction when re-opening an existing edit */
   initialInstruction?: string;
-  /** Pre-filled instructions when re-opening a composite multi-card edit */
+  /** Pre-filled instruction for the chosen sub-field when re-opening this cell */
   initialInstructionsByPath?: Record<string, string>;
   onAdd: (entry: { dotPath: string; instruction: string; locatorLabel: string }) => void;
   onCancel: () => void;
@@ -103,16 +104,10 @@ export function FieldSelectorTooltip({
   onAdd,
   onCancel,
 }: FieldSelectorTooltipProps) {
-  const isCompositeMultiCard =
-    options.length > 1 && !initialSelectedOption && initialInstruction === undefined;
-
   const [selectedOption, setSelectedOption] = useState<CompositeCellOption | null>(
     initialSelectedOption ?? (options.length === 1 ? options[0] : null),
   );
   const [instruction, setInstruction] = useState(initialInstruction ?? "");
-  const [instructionsByPath, setInstructionsByPath] = useState<Record<string, string>>(
-    () => initialInstructionsByPath ?? {},
-  );
   const tooltipRef = useRef<HTMLDivElement>(null);
   const instructionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -170,32 +165,12 @@ export function FieldSelectorTooltip({
     });
   };
 
-  const handleAddForOption = (opt: CompositeCellOption) => {
-    if (isBatchFull) return;
-    const text = (instructionsByPath[opt.dotPath] ?? "").trim();
-    if (!text) return;
-    onAdd({
-      dotPath: opt.dotPath,
-      instruction: text,
-      locatorLabel: opt.label,
-    });
-    setInstructionsByPath((prev) => ({ ...prev, [opt.dotPath]: "" }));
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleAdd();
     }
   };
-
-  const handleKeyDownForOption =
-    (opt: CompositeCellOption) => (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleAddForOption(opt);
-      }
-    };
 
   return createPortal(
     <div
@@ -226,77 +201,8 @@ export function FieldSelectorTooltip({
 
       {/* Body */}
       <div className="p-3 space-y-3">
-        {/* Composite cell (multi-card mode): separate edit cards per field */}
-        {isCompositeMultiCard && (
-          <div className="space-y-2">
-            {options.map((opt) => {
-              const text = instructionsByPath[opt.dotPath] ?? "";
-              const canAddThis = !isBatchFull && text.trim().length > 0;
-              return (
-                <div
-                  key={opt.dotPath}
-                  className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-2.5"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium"
-                          style={badge.style}
-                          title="This card belongs to this dialog"
-                        >
-                          field
-                        </span>
-                        <p className="font-medium text-[var(--color-text)] truncate">{opt.label}</p>
-                      </div>
-                      <code className="mt-0.5 block text-[10px] text-[var(--color-accent)]">
-                        {opt.dotPath}
-                      </code>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={!canAddThis}
-                      onClick={() => handleAddForOption(opt)}
-                      className={[
-                        "shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-medium transition-colors",
-                        isBatchFull
-                          ? "cursor-not-allowed bg-[var(--color-border)] text-[var(--color-text-muted)]"
-                          : canAddThis
-                          ? "bg-[var(--color-accent)] text-white hover:opacity-90"
-                          : "cursor-not-allowed bg-[var(--color-border)] text-[var(--color-text-muted)]",
-                      ].join(" ")}
-                      title={isBatchFull ? "Batch full (5/5)" : "Add this field edit to batch"}
-                    >
-                      {isBatchFull ? "Batch full" : "Add"}
-                    </button>
-                  </div>
-
-                  <div className="mt-2">
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--color-text-muted)]">
-                      Edit instruction
-                    </label>
-                    <textarea
-                      rows={2}
-                      className="w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-xs text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
-                      placeholder={`Instruction for ${opt.label}`}
-                      value={text}
-                      onChange={(e) =>
-                        setInstructionsByPath((prev) => ({ ...prev, [opt.dotPath]: e.target.value }))
-                      }
-                      onKeyDown={handleKeyDownForOption(opt)}
-                    />
-                    <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
-                      Enter to add · Shift+Enter for new line
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Step 1 — Field selector (composite cells only) */}
-        {!isCompositeMultiCard && !selectedOption && (
+        {/* Step 1 — pick sub-field (composite cells: more than one option) */}
+        {options.length > 1 && !selectedOption && (
           <div className="space-y-1.5">
             <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
               Select field to edit
@@ -305,15 +211,18 @@ export function FieldSelectorTooltip({
               <button
                 key={opt.dotPath}
                 type="button"
-                onClick={() => setSelectedOption(opt)}
+                onClick={() => {
+                  setSelectedOption(opt);
+                  setInstruction(initialInstructionsByPath?.[opt.dotPath] ?? "");
+                }}
                 className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-left text-xs text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-raised)] transition-colors"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <span className="font-medium">{opt.label}</span>
-                    <span className="ml-2 font-mono text-[10px] text-[var(--color-text-muted)]">
+                    <code className="mt-0.5 block font-mono text-[10px] leading-snug text-[var(--color-text-muted)] break-all">
                       {opt.dotPath}
-                    </span>
+                    </code>
                   </div>
                   <span
                     className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium"
@@ -329,7 +238,7 @@ export function FieldSelectorTooltip({
         )}
 
         {/* Step 2 — Instruction input */}
-        {!isCompositeMultiCard && selectedOption && (
+        {selectedOption && (
           <div className="space-y-2">
             {/* Selected field label */}
             <div className="rounded-lg bg-[var(--color-bg)] px-2 py-1.5">
@@ -348,7 +257,9 @@ export function FieldSelectorTooltip({
                 )}
               </div>
               <p className="mt-0.5 font-medium text-[var(--color-text)]">{selectedOption.label}</p>
-              <code className="text-[10px] text-[var(--color-accent)]">{selectedOption.dotPath}</code>
+              <code className="mt-0.5 block min-w-0 break-all text-[10px] leading-snug text-[var(--color-accent)]">
+                {selectedOption.dotPath}
+              </code>
             </div>
 
             {/* "Back" link for composite cells */}

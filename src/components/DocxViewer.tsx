@@ -76,7 +76,7 @@ type TooltipState = {
   cellLabel: string;
   options: CompositeCellOption[];
   locator: Locator;
-  /** Prefill multi-card instructions when re-opening an edited composite cell */
+  /** Prefill instruction when re-opening this cell and picking the same sub-field */
   initialInstructionsByPath?: Record<string, string>;
 };
 
