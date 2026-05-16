@@ -47,6 +47,20 @@ export interface ManifestResponse {
   reviewer_blocked: boolean;
 }
 
+export interface SessionSummary {
+  session_id: string;
+  status: SessionStatus;
+  target_format: TargetFormat;
+  round: number;
+  source_filename: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface SessionListResponse {
+  sessions: SessionSummary[];
+}
+
 export interface SessionCreateResponse {
   session_id: string;
   status: SessionStatus;

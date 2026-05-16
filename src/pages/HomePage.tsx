@@ -1,11 +1,12 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
 
-import clsx from "clsx";
-
 import { useAuth } from "../contexts/AuthContext";
-import { loadRecentSessions, removeRecentSession } from "../lib/recentSessions";
+import { listSessions } from "../lib/api";
+import { upsertRecentSession } from "../lib/recentSessions";
+import type { SessionSummary } from "../lib/types";
 import { Card } from "../components/ui";
 
 const fadeUp = {
@@ -42,11 +43,37 @@ function CtaIcon() {
   );
 }
 
+function formatStatus(status: string): string {
+  return status.replace(/_/g, " ");
+}
+
+function sessionTimestamp(s: SessionSummary): string {
+  return s.updated_at ?? s.created_at ?? new Date().toISOString();
+}
+
 export function HomePage() {
-  const { user } = useAuth();
-  const [, bump] = useState(0);
-  const recent = loadRecentSessions();
+  const { user, accessToken } = useAuth();
   const reduceMotion = useReducedMotion();
+
+  const sessionsQuery = useQuery({
+    queryKey: ["sessions", "list"],
+    queryFn: () => listSessions(accessToken!),
+    enabled: !!accessToken,
+  });
+
+  const sessions = sessionsQuery.data?.sessions ?? [];
+
+  useEffect(() => {
+    if (!sessionsQuery.data?.sessions.length) return;
+    for (const s of sessionsQuery.data.sessions) {
+      upsertRecentSession({
+        id: s.session_id,
+        label: s.source_filename,
+        targetFormat: s.target_format,
+        updatedAt: sessionTimestamp(s),
+      });
+    }
+  }, [sessionsQuery.data]);
 
   const motionProps = reduceMotion
     ? {}
@@ -88,74 +115,92 @@ export function HomePage() {
       >
         <div className="home-page__section-head">
           <h2 id="recent-sessions-heading" className="home-page__section-title">
-            Recent sessions
+            Your sessions
           </h2>
-          <p className="home-page__section-desc">Stored locally in this browser</p>
+          <p className="home-page__section-desc">Synced with your account</p>
         </div>
 
-        {recent.length === 0 ? (
+        {sessionsQuery.isLoading && (
+          <Card tone="session" className="home-page__empty">
+            <p className="home-page__empty-text">Loading sessions…</p>
+          </Card>
+        )}
+
+        {sessionsQuery.isError && (
+          <Card tone="session" className="home-page__empty">
+            <p className="home-page__empty-text">
+              Could not load sessions. Check your connection and refresh the page.
+            </p>
+          </Card>
+        )}
+
+        {sessionsQuery.isSuccess && sessions.length === 0 && (
           <Card tone="session" className="home-page__empty">
             <p className="home-page__empty-text">
               No sessions yet — create one to see it listed here.
             </p>
           </Card>
-        ) : (
+        )}
+
+        {sessionsQuery.isSuccess && sessions.length > 0 && (
           <ul className="home-page__list">
-            {recent.map((s, index) => (
-              <motion.li
-                key={s.id}
-                {...(reduceMotion
-                  ? {}
-                  : {
-                      initial: { opacity: 0, y: 8 },
-                      animate: { opacity: 1, y: 0 },
-                      transition: {
-                        duration: 0.4,
-                        delay: 0.08 + index * 0.04,
-                        ease: [0.22, 1, 0.36, 1],
-                      },
-                    })}
-              >
-                <Card tone="session" className="home-page__session-card">
-                  <article className="home-page__session-row">
-                    <div className="home-page__session-main">
-                      <Link className="home-page__session-link" to={`/sessions/${s.id}`}>
-                        {s.label}
-                      </Link>
-                      <div className="home-page__session-meta">
-                        <span className="home-page__format-pill">
-                          <span>Format</span>
-                          <strong className="capitalize">{s.targetFormat.replace(/_/g, " ")}</strong>
-                        </span>
-                        <span className="home-page__meta-dot" aria-hidden />
-                        <time
-                          className="home-page__session-date"
-                          dateTime={s.updatedAt}
+            {sessions.map((s, index) => {
+              const updatedAt = sessionTimestamp(s);
+              return (
+                <motion.li
+                  key={s.session_id}
+                  {...(reduceMotion
+                    ? {}
+                    : {
+                        initial: { opacity: 0, y: 8 },
+                        animate: { opacity: 1, y: 0 },
+                        transition: {
+                          duration: 0.4,
+                          delay: 0.08 + index * 0.04,
+                          ease: [0.22, 1, 0.36, 1],
+                        },
+                      })}
+                >
+                  <Card tone="session" className="home-page__session-card">
+                    <article className="home-page__session-row">
+                      <div className="home-page__session-main">
+                        <Link
+                          className="home-page__session-link"
+                          to={`/sessions/${s.session_id}`}
                         >
-                          {new Date(s.updatedAt).toLocaleString()}
-                        </time>
+                          {s.source_filename}
+                        </Link>
+                        <div className="home-page__session-meta">
+                          <span className="home-page__format-pill">
+                            <span>Format</span>
+                            <strong className="capitalize">
+                              {s.target_format.replace(/_/g, " ")}
+                            </strong>
+                          </span>
+                          <span className="home-page__format-pill">
+                            <span>Status</span>
+                            <strong className="capitalize">{formatStatus(s.status)}</strong>
+                          </span>
+                          <span className="home-page__meta-dot" aria-hidden />
+                          <time className="home-page__session-date" dateTime={updatedAt}>
+                            {new Date(updatedAt).toLocaleString()}
+                          </time>
+                        </div>
                       </div>
-                    </div>
-                    <div className="home-page__session-actions">
-                      <Link to={`/sessions/${s.id}`} className="home-page__btn-open">
-                        Open
-                        <OpenIcon />
-                      </Link>
-                      <button
-                        type="button"
-                        className={clsx("home-page__btn--ghost")}
-                        onClick={() => {
-                          removeRecentSession(s.id);
-                          bump((x) => x + 1);
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </article>
-                </Card>
-              </motion.li>
-            ))}
+                      <div className="home-page__session-actions">
+                        <Link
+                          to={`/sessions/${s.session_id}`}
+                          className="home-page__btn-open"
+                        >
+                          Open
+                          <OpenIcon />
+                        </Link>
+                      </div>
+                    </article>
+                  </Card>
+                </motion.li>
+              );
+            })}
           </ul>
         )}
       </motion.section>

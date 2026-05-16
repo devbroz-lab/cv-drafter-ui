@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 
 import clsx from "clsx";
@@ -140,6 +141,7 @@ export function NewSessionPage() {
   const { accessToken } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
 
   const [targetFormat, setTargetFormat] = useState<"giz" | "world_bank">("giz");
@@ -192,6 +194,7 @@ export function NewSessionPage() {
         targetFormat,
         updatedAt: new Date().toISOString(),
       });
+      void queryClient.invalidateQueries({ queryKey: ["sessions", "list"] });
 
       toast("Session started. Pipeline is running.");
       navigate(`/sessions/${session_id}`, { replace: true, state: { sourceFilename } });

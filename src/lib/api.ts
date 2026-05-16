@@ -5,6 +5,7 @@ import type {
   OutputResponse,
   ReviewResponse,
   SessionCreateResponse,
+  SessionListResponse,
   SessionStatusResponse,
   TorPoolSelectionResponse,
   TorPoolsResponse,
@@ -74,6 +75,18 @@ async function authorizedFetch(
     throw new ApiError(res.status, body);
   }
   return res;
+}
+
+export async function listSessions(
+  token: string,
+  params?: { limit?: number; offset?: number },
+): Promise<SessionListResponse> {
+  const search = new URLSearchParams();
+  if (params?.limit != null) search.set("limit", String(params.limit));
+  if (params?.offset != null) search.set("offset", String(params.offset));
+  const qs = search.toString();
+  const res = await authorizedFetch(`/sessions${qs ? `?${qs}` : ""}`, { method: "GET" }, token);
+  return res.json() as Promise<SessionListResponse>;
 }
 
 export async function createSession(
