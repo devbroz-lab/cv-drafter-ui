@@ -5,8 +5,6 @@ import clsx from "clsx";
 
 import { useAuth } from "../contexts/AuthContext";
 
-import { Button } from "./ui";
-
 const SIDEBAR_STORAGE_KEY = "cv-drafter-sidebar-collapsed";
 
 function NavIcon({ name }: { name: "home" | "new" | "settings" | "signout" }) {
@@ -69,10 +67,9 @@ function NavIcon({ name }: { name: "home" | "new" | "settings" | "signout" }) {
 export function AppShell() {
   const { signOut } = useAuth();
   const location = useLocation();
+  const isHome = location.pathname === "/";
   const isNewSession = location.pathname === "/sessions/new";
   const isSessionWorkspace = /^\/sessions\/[^/]+$/.test(location.pathname);
-  const isSessionChrome = isNewSession || isSessionWorkspace;
-
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_STORAGE_KEY) === "1";
@@ -101,7 +98,7 @@ export function AppShell() {
       className={clsx(
         "app-shell flex min-h-screen",
         sidebarCollapsed && "app-shell--sidebar-collapsed",
-        isSessionChrome && "app-shell--session",
+        "app-shell--session",
       )}
     >
       <aside className="app-shell-sidebar" aria-label="Main navigation">
@@ -147,32 +144,36 @@ export function AppShell() {
         </nav>
 
         <div className="app-shell-sidebar-foot">
-          <Button
-            variant="ghost"
-            className="app-shell-signout w-full"
+          <button
             type="button"
+            className="app-shell-nav-link app-shell-signout"
             title="Sign out"
+            aria-label="Sign out"
             onClick={() => void signOut()}
           >
             <NavIcon name="signout" />
             <span className="app-shell-nav-label">Sign out</span>
-          </Button>
+          </button>
         </div>
       </aside>
 
       <main
         className={clsx(
           "app-shell-main min-w-0 flex-1 bg-[var(--color-bg)]",
-          isSessionChrome
-            ? "flex min-h-screen flex-col overflow-y-auto px-4 py-8 sm:px-8"
-            : "p-8",
+          isNewSession
+            ? "flex min-h-screen flex-col overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:px-10"
+            : "flex min-h-screen flex-col overflow-y-auto px-4 py-8 sm:px-8",
         )}
       >
         <div
           className={clsx(
-            isSessionChrome
-              ? "mx-auto w-full min-w-0 max-w-[42rem] px-2 py-2 sm:px-4"
-              : "mx-auto w-full max-w-3xl",
+            isNewSession
+              ? "mx-auto w-full min-w-0 max-w-[68rem]"
+              : isSessionWorkspace
+                ? "mx-auto w-full min-w-0 max-w-[50rem] px-2 py-2 sm:px-5"
+                : isHome
+                  ? "mx-auto w-full min-w-0 max-w-[56rem] px-2 py-2 sm:px-5"
+                  : "mx-auto w-full min-w-0 max-w-[50rem] px-2 py-2 sm:px-5",
           )}
         >
           <Outlet />

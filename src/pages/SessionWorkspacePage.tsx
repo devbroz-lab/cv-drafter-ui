@@ -241,7 +241,7 @@ export function SessionWorkspacePage() {
 
   const [showViewer, setShowViewer] = useState(false);
   const [viewerDocxUrl, setViewerDocxUrl] = useState<string | null>(null);
-  const [viewerMode, setViewerMode] = useState<"reference" | "field_editor">("reference");
+  const [viewerMode, setViewerMode] = useState<"reference" | "field_editor">("field_editor");
   const [viewerLoading, setViewerLoading] = useState(false);
 
   // Track round so we can refresh the signed URL when a new round completes.
@@ -329,7 +329,7 @@ export function SessionWorkspacePage() {
         setLastEditResult(null);
         toast(
           `${applied.length} edit${applied.length !== 1 ? "s" : ""} saved. ` +
-            "The Word file updates after rendering finishes (status returns to completed); open View or Download again then.",
+            "The Word file updates after rendering finishes (status returns to completed); open Edit fields or Download again then.",
         );
       } else {
         setLastEditResult(data);
@@ -409,7 +409,7 @@ export function SessionWorkspacePage() {
           <h1 className="mt-5 text-[1.75rem] font-medium leading-tight tracking-[-0.02em] text-[var(--chat-text,#ececec)] sm:text-[2rem]">
             {workspaceTitle}
           </h1>
-          <p className="mt-2 max-w-lg text-[0.9375rem] leading-relaxed text-[var(--chat-muted,#b4b4b4)]">
+          <p className="mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-[var(--chat-muted,#b4b4b4)]">
             {showLiveStrip
               ? "Working through your CV in the background — updates appear here automatically."
               : st === "completed"
@@ -544,13 +544,13 @@ export function SessionWorkspacePage() {
                 >
                   <Card tone="session" className="session-card--success">
                     <div className="session-card-header flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-                      <div className="min-w-0 max-w-xl flex-1">
+                      <div className="min-w-0 flex-1">
                         <span className="session-card-eyebrow session-card-eyebrow--accent">Deliverable</span>
                         <h2 className="session-card-title session-card-title--lg">
                           Your formatted CV is complete
                         </h2>
                         <p className="session-card-body">
-                          Download a print-ready Word export or open the viewer to reference or refine fields inline.
+                          Download a print-ready Word export or edit fields inline before your next pass.
                         </p>
                       </div>
                       <div className="session-icon-badge sm:mt-1">
@@ -577,19 +577,6 @@ export function SessionWorkspacePage() {
                         onClick={() => void runDownload()}
                       >
                         {downloading ? "Opening…" : "Download Word"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="session-btn-secondary"
-                        disabled={viewerLoading || (showViewer && viewerMode === "reference")}
-                        onClick={() => void openViewer("reference")}
-                      >
-                        {viewerLoading && viewerMode !== "field_editor"
-                          ? "Loading…"
-                          : showViewer && viewerMode === "reference"
-                          ? "Viewer open →"
-                          : "View"}
                       </Button>
                       <Button
                         type="button"

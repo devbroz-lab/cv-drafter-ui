@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import clsx from "clsx";
@@ -7,211 +7,134 @@ import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { createSession, formatApiError, startSession, uploadSource, uploadTor } from "../lib/api";
 import { upsertRecentSession } from "../lib/recentSessions";
-import { Button, Input, Label, Textarea } from "../components/ui";
 
-function FieldGroup({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
+const FILE_ACCEPT =
+  ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+const FORMATS = [
+  { id: "giz" as const, label: "GIZ", hint: "Development template" },
+  { id: "world_bank" as const, label: "World Bank", hint: "WB consultant layout" },
+];
+
+function StepHeader({ step, title, description }: { step: string; title: string; description: string }) {
   return (
-    <div className="new-session-field-group">
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
+    <header className="ns-step__head">
+      <div className="ns-step__head-main">
+        <p className="ns-step__kicker">{step}</p>
+        <h2 className="ns-step__title">{title}</h2>
+      </div>
+      <p className="ns-step__desc">{description}</p>
+    </header>
+  );
+}
+
+function SegmentedFormat({
+  value,
+  onChange,
+}: {
+  value: "giz" | "world_bank";
+  onChange: (v: "giz" | "world_bank") => void;
+}) {
+  return (
+    <div className="ns-field">
+      <span className="ns-label" id="donor-format-label">
+        Donor format
+      </span>
+      <div className="ns-segment" role="radiogroup" aria-labelledby="donor-format-label">
+        {FORMATS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            role="radio"
+            aria-checked={value === f.id}
+            className={clsx("ns-segment__opt", value === f.id && "ns-segment__opt--active")}
+            onClick={() => onChange(f.id)}
+          >
+            <span className="ns-segment__label">{f.label}</span>
+            <span className="ns-segment__hint">{f.hint}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
-function TileIcon({ children, variant = "default" }: { children: ReactNode; variant?: "default" | "success" }) {
-  return (
-    <span
-      className={clsx("new-session-tile-icon", variant === "success" && "new-session-tile-icon--success")}
-      aria-hidden
-    >
-      {children}
-    </span>
-  );
-}
-
-function ChoiceTile({
-  title,
-  subtitle,
-  icon,
-  selected,
-  onClick,
-  className,
-  role,
-  "aria-checked": ariaChecked,
-  truncateTitle = false,
-}: {
-  title: string;
-  subtitle: string;
-  icon: ReactNode;
-  selected?: boolean;
-  onClick?: () => void;
-  className?: string;
-  role?: string;
-  "aria-checked"?: boolean;
-  truncateTitle?: boolean;
-}) {
-  const Comp = onClick ? "button" : "div";
-  return (
-    <Comp
-      type={onClick ? "button" : undefined}
-      role={role}
-      aria-checked={ariaChecked}
-      onClick={onClick}
-      className={clsx("new-session-tile", selected && "new-session-tile--selected", className)}
-    >
-      <TileIcon variant={selected ? "success" : "default"}>{icon}</TileIcon>
-      <span className="new-session-tile-body">
-        <span className={clsx("new-session-tile-title", truncateTitle && "new-session-tile-title--truncate")}>
-          {title}
-        </span>
-        <span className="new-session-tile-subtitle">{subtitle}</span>
-      </span>
-    </Comp>
-  );
-}
-
-function FormatIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="h-5 w-5">
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M6 4h8a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"
-      />
-      <path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" d="M7 8h6M7 11h4" />
-    </svg>
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="h-5 w-5">
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M10 4v9M7 7l3-3 3 3M5 14h10a1 1 0 0 1 1 1v1H4v-1a1 1 0 0 1 1-1Z"
-      />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="h-5 w-5">
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M5 10.5 8.5 14 15 7"
-      />
-    </svg>
-  );
-}
-
-function FormatOption({
-  label,
-  description,
-  selected,
-  onSelect,
-}: {
-  label: string;
-  description: string;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <ChoiceTile
-      title={label}
-      subtitle={description}
-      icon={<FormatIcon />}
-      selected={selected}
-      onClick={onSelect}
-      role="radio"
-      aria-checked={selected}
-    />
-  );
-}
-
-function FileDropZone({
+function UploadRow({
   id,
   label,
-  hint,
-  accept,
   file,
   onFile,
   required,
 }: {
   id: string;
   label: string;
-  hint: string;
-  accept: string;
   file: File | null;
   onFile: (f: File | null) => void;
   required?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const pick = useCallback(() => inputRef.current?.click(), []);
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragging(false);
+      const f = e.dataTransfer.files?.[0];
+      if (f) onFile(f);
+    },
+    [onFile],
+  );
 
   return (
-    <FieldGroup label={label} htmlFor={id}>
-      <ChoiceTile
-        title={file ? file.name : "Choose a file"}
-        subtitle={file ? "Click to replace" : hint}
-        icon={file ? <CheckIcon /> : <UploadIcon />}
-        selected={!!file}
-        truncateTitle={!!file}
-        onClick={() => inputRef.current?.click()}
-        className="w-full"
-      />
+    <div className="ns-field">
+      <label className="ns-label" htmlFor={id}>
+        {label}
+      </label>
+      <button
+        type="button"
+        className={clsx("ns-upload", file && "ns-upload--done", dragging && "ns-upload--drag")}
+        onClick={pick}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+      >
+        <span className="ns-upload__icon" aria-hidden>
+          {file ? (
+            <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 8.5 6.5 11.5 12.5 5.5" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" d="M8 3v7M5.5 5.5 8 3l2.5 2.5" />
+              <path strokeLinecap="round" d="M4 12h8" />
+            </svg>
+          )}
+        </span>
+        <span className="ns-upload__copy">
+          <span className={clsx("ns-upload__primary", file && "ns-upload__primary--truncate")}>
+            {file ? file.name : "Drop file or browse"}
+          </span>
+          <span className="ns-upload__secondary">{file ? "Click to replace" : "DOCX or PDF"}</span>
+        </span>
+        <span className="ns-upload__action">{file ? "Change" : "Browse"}</span>
+      </button>
       <input
         ref={inputRef}
         id={id}
         type="file"
         className="sr-only"
         required={required}
-        accept={accept}
+        accept={FILE_ACCEPT}
         onChange={(e) => onFile(e.target.files?.[0] ?? null)}
       />
-    </FieldGroup>
+    </div>
   );
 }
-
-function FormSection({
-  step,
-  eyebrow,
-  title,
-  description,
-  children,
-}: {
-  step: string;
-  eyebrow: string;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="session-panel session-card">
-      <div className="session-card-header">
-        <span className="session-card-eyebrow">
-          {step} · {eyebrow}
-        </span>
-        <h2 className="session-card-title">{title}</h2>
-        <p className="session-card-body !mt-2 !text-[0.8125rem]">{description}</p>
-      </div>
-      <div className="new-session-fields-stack mt-6">{children}</div>
-    </section>
-  );
-}
-
-const FILE_ACCEPT =
-  ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 export function NewSessionPage() {
   const { accessToken } = useAuth();
@@ -280,147 +203,151 @@ export function NewSessionPage() {
   }
 
   return (
-    <div className="new-session-page session-workspace-root w-full min-w-0 pb-10">
-      <header className="pb-1 pt-1">
-        <Link className="session-link-back" to="/">
+    <div className="ns session-workspace-root w-full min-w-0 pb-12">
+      <header className="ns-hero">
+        <Link className="ns-hero__back" to="/">
           ← Back
         </Link>
-        <h1 className="mt-5 text-[1.75rem] font-medium leading-tight tracking-[-0.02em] text-[var(--chat-text,#ececec)] sm:text-[2rem]">
-          New reformat
-        </h1>
-        <p className="mt-2 max-w-lg text-[0.9375rem] leading-relaxed text-[var(--chat-muted,#8e8e8e)]">
-          Upload your CV and ToR, add context if you have it, then start the pipeline in one step.
+        <h1 className="ns-hero__title">New reformat</h1>
+        <p className="ns-hero__lead">
+          Upload your documents, add optional context, and start the pipeline in one step.
         </p>
       </header>
 
-      <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-6 sm:gap-7">
-        <FormSection
-          step="01"
-          eyebrow="Setup"
-          title="Format & files"
-          description="Choose the donor template and upload the documents we will reformat."
-        >
-          <FieldGroup label="Donor format">
-            <div className="new-session-tile-grid" role="radiogroup" aria-label="Donor format">
-              <FormatOption
-                label="GIZ"
-                description="German development cooperation template"
-                selected={targetFormat === "giz"}
-                onSelect={() => setTargetFormat("giz")}
-              />
-              <FormatOption
-                label="World Bank"
-                description="WB consultant CV layout"
-                selected={targetFormat === "world_bank"}
-                onSelect={() => setTargetFormat("world_bank")}
-              />
+      <div className="ns-surface">
+        <form className="ns-form" onSubmit={onSubmit} noValidate>
+          <section className="ns-step" aria-labelledby="step-1-title">
+            <StepHeader
+              step="Step 1"
+              title="Documents"
+              description="Select a donor template and upload your CV and terms of reference."
+            />
+            <div className="ns-step__body ns-step__body--documents">
+              <SegmentedFormat value={targetFormat} onChange={setTargetFormat} />
+              <div className="ns-upload-stack">
+                <UploadRow id="cv-file" label="CV" file={cvFile} onFile={setCvFile} required />
+                <UploadRow
+                  id="tor-file"
+                  label="Terms of reference"
+                  file={torFile}
+                  onFile={setTorFile}
+                  required
+                />
+              </div>
             </div>
-          </FieldGroup>
+          </section>
 
-          <FileDropZone
-            id="cv-file"
-            label="CV file"
-            hint=".docx or .pdf — required"
-            accept={FILE_ACCEPT}
-            file={cvFile}
-            onFile={setCvFile}
-            required
-          />
+          <hr className="ns-divider" />
 
-          <FileDropZone
-            id="tor-file"
-            label="Terms of Reference"
-            hint=".docx or .pdf — required"
-            accept={FILE_ACCEPT}
-            file={torFile}
-            onFile={setTorFile}
-            required
-          />
-        </FormSection>
-
-        <FormSection
-          step="02"
-          eyebrow="Context"
-          title="Project details"
-          description="Optional fields that help match the role and page constraints."
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FieldGroup label="Category" htmlFor="category">
-              <Input
-                id="category"
-                className="new-session-field"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="Senior Expert"
-              />
-            </FieldGroup>
-            <FieldGroup label="Employer" htmlFor="employer">
-              <Input
-                id="employer"
-                className="new-session-field"
-                value={employer}
-                onChange={(e) => setEmployer(e.target.value)}
-                placeholder="Firm or organisation"
-              />
-            </FieldGroup>
-            <FieldGroup label="Years with firm" htmlFor="years-with-firm">
-              <Input
-                id="years-with-firm"
-                className="new-session-field"
-                value={yearsWithFirm}
-                onChange={(e) => setYearsWithFirm(e.target.value)}
-                placeholder="5"
-              />
-            </FieldGroup>
-            <FieldGroup label="Page limit" htmlFor="page-limit">
-              <Input
-                id="page-limit"
-                className="new-session-field"
-                type="number"
-                min={1}
-                max={100}
-                value={pageLimit}
-                onChange={(e) => setPageLimit(e.target.value)}
-              />
-            </FieldGroup>
-          </div>
-        </FormSection>
-
-        <FormSection
-          step="03"
-          eyebrow="Notes"
-          title="Additional guidance"
-          description="Paste role expectations or recruiter notes to steer writing quality."
-        >
-          <FieldGroup label="Job description" htmlFor="job-description">
-            <Textarea
-              id="job-description"
-              className="new-session-field min-h-[7.5rem]"
-              value={jobDescription}
-              onChange={(e) => setJobDescription(e.target.value)}
-              placeholder="Key responsibilities, scope, must-have expertise…"
+          <section className="ns-step" aria-labelledby="step-2-title">
+            <StepHeader
+              step="Step 2"
+              title="Project context"
+              description="Optional details that improve role matching and page limits."
             />
-          </FieldGroup>
-          <FieldGroup label="Recruiter comments" htmlFor="recruiter-comments">
-            <Textarea
-              id="recruiter-comments"
-              className="new-session-field min-h-[6.5rem]"
-              value={recruiterComments}
-              onChange={(e) => setRecruiterComments(e.target.value)}
-              placeholder="Constraints, emphasis, or submission notes…"
-            />
-          </FieldGroup>
-        </FormSection>
+            <div className="ns-step__body">
+              <div className="ns-grid-2">
+                <div className="ns-field">
+                  <label className="ns-label ns-label--optional" htmlFor="category">
+                    Category
+                  </label>
+                  <input
+                    id="category"
+                    className="ns-input"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    placeholder="Senior Expert"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="ns-field">
+                  <label className="ns-label ns-label--optional" htmlFor="employer">
+                    Employer
+                  </label>
+                  <input
+                    id="employer"
+                    className="ns-input"
+                    value={employer}
+                    onChange={(e) => setEmployer(e.target.value)}
+                    placeholder="Organisation"
+                    autoComplete="organization"
+                  />
+                </div>
+                <div className="ns-field">
+                  <label className="ns-label ns-label--optional" htmlFor="years-with-firm">
+                    Years with firm
+                  </label>
+                  <input
+                    id="years-with-firm"
+                    className="ns-input"
+                    value={yearsWithFirm}
+                    onChange={(e) => setYearsWithFirm(e.target.value)}
+                    placeholder="5"
+                    inputMode="numeric"
+                  />
+                </div>
+                <div className="ns-field">
+                  <label className="ns-label ns-label--optional" htmlFor="page-limit">
+                    Page limit
+                  </label>
+                  <input
+                    id="page-limit"
+                    className="ns-input"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={pageLimit}
+                    onChange={(e) => setPageLimit(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
 
-        <div className="session-panel session-card flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7">
-          <p className="text-sm leading-relaxed text-[var(--chat-muted,#8e8e8e)]">
-            Creates a session, uploads both files, and starts the pipeline immediately.
-          </p>
-          <Button type="submit" className="session-btn-primary shrink-0 px-6" disabled={busy}>
-            {busy ? "Creating and starting…" : "Create & start pipeline"}
-          </Button>
-        </div>
-      </form>
+          <hr className="ns-divider" />
+
+          <section className="ns-step">
+            <StepHeader
+              step="Step 3"
+              title="Guidance"
+              description="Paste role expectations or recruiter notes for the writing pass."
+            />
+            <div className="ns-step__body ns-step__body--notes">
+              <div className="ns-field">
+                <label className="ns-label ns-label--optional" htmlFor="job-description">
+                  Job description
+                </label>
+                <textarea
+                  id="job-description"
+                  className="ns-textarea"
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  placeholder="Responsibilities, scope, must-have expertise…"
+                />
+              </div>
+              <div className="ns-field">
+                <label className="ns-label ns-label--optional" htmlFor="recruiter-comments">
+                  Recruiter comments
+                </label>
+                <textarea
+                  id="recruiter-comments"
+                  className="ns-textarea"
+                  value={recruiterComments}
+                  onChange={(e) => setRecruiterComments(e.target.value)}
+                  placeholder="Constraints, emphasis, submission notes…"
+                />
+              </div>
+            </div>
+          </section>
+
+          <footer className="ns-footer">
+            <p className="ns-footer__hint">Creates a session, uploads files, and runs the pipeline.</p>
+            <button type="submit" className="ns-footer__btn" disabled={busy}>
+              {busy ? "Starting…" : "Create & start"}
+            </button>
+          </footer>
+        </form>
+      </div>
     </div>
   );
 }
