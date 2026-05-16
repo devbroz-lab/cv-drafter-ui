@@ -29,3 +29,9 @@ export function removeRecentSession(id: string): void {
   const list = loadRecentSessions().filter((s) => s.id !== id);
   localStorage.setItem(KEY, JSON.stringify(list));
 }
+
+/** Human label saved at session create (CV filename), when status API has not populated yet. */
+export function recentSessionLabel(sessionId: string): string | undefined {
+  const label = loadRecentSessions().find((s) => s.id === sessionId)?.label?.trim();
+  return label || undefined;
+}

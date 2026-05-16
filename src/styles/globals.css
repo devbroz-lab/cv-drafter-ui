@@ -190,6 +190,78 @@ body {
   );
 }
 
+/* Premium pipeline flow — expand active step, collapse completed */
+.pipeline-flow-rail {
+  background: linear-gradient(
+    180deg,
+    rgba(217, 119, 87, 0.35) 0%,
+    rgba(255, 255, 255, 0.08) 35%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+}
+
+.pipeline-step-row--active {
+  border: 1px solid rgba(217, 119, 87, 0.22);
+  background: linear-gradient(
+    145deg,
+    rgba(217, 119, 87, 0.1) 0%,
+    rgba(0, 0, 0, 0.35) 55%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(217, 119, 87, 0.06),
+    0 20px 48px -24px rgba(217, 119, 87, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.pipeline-step-row--celebrate {
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: linear-gradient(
+    145deg,
+    rgba(52, 211, 153, 0.12) 0%,
+    rgba(0, 0, 0, 0.32) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(52, 211, 153, 0.08),
+    0 16px 40px -20px rgba(52, 211, 153, 0.22);
+}
+
+.pipeline-step-row--done {
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pipeline-step-row--blocked {
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.08) 0%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+.pipeline-step-shimmer {
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 45%,
+    transparent 90%
+  );
+  background-size: 200% 100%;
+  animation: pipeline-shimmer 2.4s ease-in-out infinite;
+}
+
+@keyframes pipeline-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pipeline-step-shimmer {
+    animation: none;
+  }
+}
+
 .session-shimmer {
   position: relative;
   overflow: hidden;

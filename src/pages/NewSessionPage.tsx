@@ -65,7 +65,7 @@ export function NewSessionPage() {
       });
 
       toast("Session started. Pipeline is running.");
-      navigate(`/sessions/${session_id}`, { replace: true });
+      navigate(`/sessions/${session_id}`, { replace: true, state: { sourceFilename } });
     } catch (err: unknown) {
       toast(formatApiError(err), "error");
     } finally {

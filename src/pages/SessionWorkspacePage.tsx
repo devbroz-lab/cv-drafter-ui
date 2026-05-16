@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 
 import { SessionOutputInsights } from "../components/session/SessionAIReview";
-import { SessionLivePipelineStrip, SessionPipelineTimeline } from "../components/session/SessionPipeline";
+import { SessionLivePipelineStrip } from "../components/session/SessionPipeline";
+import { SessionPipelineTimeline } from "../components/session/SessionPipelineFlow";
 import { SkippedEditsPanel } from "../components/session/SkippedEditsPanel";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import {
+  ApiError,
   approveCheckpoint,
   formatApiError,
   getManifest,
@@ -17,7 +19,7 @@ import {
   getSessionStatus,
   submitFieldEdits,
 } from "../lib/api";
-import { upsertRecentSession } from "../lib/recentSessions";
+import { recentSessionLabel, upsertRecentSession } from "../lib/recentSessions";
 import type {
   FieldEditItem,
   FieldEditResponse,
@@ -37,6 +39,14 @@ function pollMs(status: SessionStatus | undefined): number | false {
   if (!status) return 2500;
   if (status === "completed" || status === "failed") return false;
   return 2500;
+}
+
+function pollMsUnlessUnauthorized(
+  status: SessionStatus | undefined,
+  error: unknown,
+): number | false {
+  if (error instanceof ApiError && error.status === 401) return false;
+  return pollMs(status);
 }
 
 function progressForStatus(status: SessionStatus | undefined): number {
@@ -63,12 +73,30 @@ function progressForStatus(status: SessionStatus | undefined): number {
 /** Notes persisted with auto-approved checkpoints (2 & 3). */
 const AUTO_CP_NOTES = "Auto-approved (checkpoints skipped in UI)";
 
+type SessionNavState = { sourceFilename?: string };
+
+function resolveCvDisplayName(
+  sourceFilename: string | undefined | null,
+  navFilename: string | undefined,
+  cachedLabel: string | undefined,
+): string {
+  const fromApi = sourceFilename?.trim();
+  if (fromApi) return fromApi;
+  const fromNav = navFilename?.trim();
+  if (fromNav) return fromNav;
+  const fromCache = cachedLabel?.trim();
+  if (fromCache) return fromCache;
+  return "Your CV";
+}
+
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
 
 export function SessionWorkspacePage() {
   const { sessionId = "" } = useParams<{ sessionId: string }>();
+  const location = useLocation();
+  const navSourceFilename = (location.state as SessionNavState | null)?.sourceFilename;
   const { accessToken } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -80,7 +108,7 @@ export function SessionWorkspacePage() {
     queryKey: ["sessionStatus", sessionId, accessToken],
     queryFn: () => getSessionStatus(accessToken!, sessionId),
     enabled: !!accessToken && !!sessionId,
-    refetchInterval: (q) => pollMs(q.state.data?.status),
+    refetchInterval: (q) => pollMsUnlessUnauthorized(q.state.data?.status, q.state.error),
   });
 
   const st = statusQuery.data?.status;
@@ -90,7 +118,7 @@ export function SessionWorkspacePage() {
     queryFn: () => getManifest(accessToken!, sessionId),
     enabled: !!accessToken && !!sessionId && st !== undefined && st !== "queued",
     retry: false,
-    refetchInterval: () => pollMs(st),
+    refetchInterval: (q) => pollMsUnlessUnauthorized(st, q.state.error),
   });
 
   // Fetch output whenever we're at a stage that has generated content.
@@ -116,6 +144,12 @@ export function SessionWorkspacePage() {
       });
     }
   }, [statusQuery.data]);
+
+  useEffect(() => {
+    if (statusQuery.error instanceof ApiError && statusQuery.error.status === 401) {
+      toast("Session expired. Please sign in again.", "error");
+    }
+  }, [statusQuery.error, toast]);
 
   // ── Auto-approve checkpoints 2 & 3 (checkpoint 1 is manual ToR selection) ───
 
@@ -327,13 +361,23 @@ export function SessionWorkspacePage() {
 
   // ── Misc ───────────────────────────────────────────────────────────────────
 
-  const workspaceTitle = useMemo(() => {
-    if (!statusQuery.data) return "Loading…";
-    return statusQuery.data.source_filename || statusQuery.data.session_id || "Session";
-  }, [statusQuery.data]);
+  const cvDisplayName = useMemo(
+    () =>
+      resolveCvDisplayName(
+        statusQuery.data?.source_filename,
+        navSourceFilename,
+        recentSessionLabel(sessionId),
+      ),
+    [statusQuery.data?.source_filename, sessionId, navSourceFilename],
+  );
 
-  const fileLabel =
-    statusQuery.data?.source_filename || statusQuery.data?.session_id || sessionId || "Document";
+  const hasCvNameHint =
+    Boolean(statusQuery.data?.source_filename?.trim()) ||
+    Boolean(navSourceFilename?.trim()) ||
+    Boolean(recentSessionLabel(sessionId));
+
+  const workspaceTitle = statusQuery.isLoading && !hasCvNameHint ? "Loading…" : cvDisplayName;
+  const fileLabel = cvDisplayName;
 
   if (!sessionId)
     return (
