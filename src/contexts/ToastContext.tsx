@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 import clsx from "clsx";
 
@@ -12,7 +12,7 @@ const Ctx = createContext<ToastCtx | null>(null);
 
 let toastId = 0;
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<Toast[]>([]);
 
   const toast = useCallback((message: string, variant: Toast["variant"] = "info") => {

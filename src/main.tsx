@@ -8,6 +8,9 @@ import App from "./App";
 import { queryClient } from "./lib/queryClient";
 
 import "./styles/globals.css";
+import "./styles/auth-page.css";
+import "./styles/home-page.css";
+import "./styles/new-session-flow.css";
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 

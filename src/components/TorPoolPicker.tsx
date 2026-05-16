@@ -24,11 +24,13 @@ const LOADING_MESSAGES = [
 
 import { useAuth } from "../contexts/AuthContext";
 import { formatApiError, getTorPools, approveCheckpoint, selectTorPool } from "../lib/api";
-import type { TorPoolsResponse } from "../lib/types";
+import type { TargetFormat, TorPoolsResponse } from "../lib/types";
 import { Button } from "./ui";
 
 interface TorPoolPickerProps {
   sessionId: string;
+  /** GIZ uses “expert pool” copy; World Bank uses Statement of Need (SN) terminology. */
+  targetFormat?: TargetFormat;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }
@@ -38,13 +40,16 @@ function PoolCard({
   index,
   selected,
   onSelect,
+  fallbackRoleLabel,
 }: {
   pool: Record<string, unknown>;
   index: number;
   selected: boolean;
   onSelect: (i: number) => void;
+  fallbackRoleLabel: string;
 }) {
-  const title = (pool.position_title as string | undefined) || `Expert Pool ${index + 1}`;
+  const title =
+    (pool.position_title as string | undefined) || `${fallbackRoleLabel} ${index + 1}`;
   const sector = (pool.sector as string | undefined) || "";
   const tasks = (pool.key_tasks as unknown[] | undefined) ?? [];
   const previewTasks = tasks.slice(0, 3) as string[];
@@ -95,7 +100,13 @@ function PoolCard({
   );
 }
 
-export function TorPoolPicker({ sessionId, onSuccess, onError }: TorPoolPickerProps) {
+export function TorPoolPicker({
+  sessionId,
+  targetFormat = "giz",
+  onSuccess,
+  onError,
+}: TorPoolPickerProps) {
+  const wb = targetFormat === "world_bank";
   const { accessToken } = useAuth();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -152,14 +163,17 @@ export function TorPoolPicker({ sessionId, onSuccess, onError }: TorPoolPickerPr
 
   if (poolsQuery.isLoading) {
     return (
-      <p className="mt-4 text-sm text-[var(--color-text-muted)]">Loading ToR pools…</p>
+      <p className="mt-4 text-sm text-[var(--color-text-muted)]">
+        {wb ? "Loading Statements of Need from the ToR…" : "Loading ToR pools…"}
+      </p>
     );
   }
 
   if (poolsQuery.isError) {
     return (
       <p className="mt-4 text-sm text-red-300">
-        Could not load ToR pools: {formatApiError(poolsQuery.error)}
+        {wb ? "Could not load SN list: " : "Could not load ToR pools: "}
+        {formatApiError(poolsQuery.error)}
       </p>
     );
   }
@@ -170,21 +184,33 @@ export function TorPoolPicker({ sessionId, onSuccess, onError }: TorPoolPickerPr
       {pools.length === 1 ? (
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-xs text-[var(--color-text-muted)]">
           <span className="font-medium text-[var(--color-text)]">
-            {(pools[0].position_title as string | undefined) || "Expert Pool 1"}
+            {(pools[0].position_title as string | undefined) ||
+              (wb ? "Statement of Need 1" : "Expert Pool 1")}
           </span>
           {(pools[0].sector as string | undefined) && (
             <span className="ml-2 opacity-70">· {pools[0].sector as string}</span>
           )}
           <span className="ml-2 rounded bg-emerald-950/50 px-1.5 py-0.5 text-[10px] text-emerald-300">
-            auto-selected
+            {wb ? "SN auto-selected" : "auto-selected"}
           </span>
         </div>
       ) : (
         /* Multiple pools — selectable cards */
         <div className="space-y-3">
           <p className="text-xs text-[var(--color-text-muted)]">
-            This ToR describes <strong className="text-[var(--color-text)]">{pools.length} expert roles</strong>.
-            Select the one that matches this candidate's position.
+            {wb ? (
+              <>
+                This ToR contains{" "}
+                <strong className="text-[var(--color-text)]">{pools.length} Statements of Need (SN)</strong>.
+                Select the SN that matches this consultant assignment.
+              </>
+            ) : (
+              <>
+                This ToR describes{" "}
+                <strong className="text-[var(--color-text)]">{pools.length} expert roles</strong>.
+                Select the one that matches this candidate&apos;s position.
+              </>
+            )}
           </p>
           {pools.map((pool, i) => (
             <PoolCard
@@ -193,6 +219,7 @@ export function TorPoolPicker({ sessionId, onSuccess, onError }: TorPoolPickerPr
               index={i}
               selected={selectedIndex === i}
               onSelect={setSelectedIndex}
+              fallbackRoleLabel={wb ? "SN" : "Expert Pool"}
             />
           ))}
         </div>
@@ -225,8 +252,12 @@ export function TorPoolPicker({ sessionId, onSuccess, onError }: TorPoolPickerPr
               className="pointer-events-none"
             />
             {resolvedIndex !== null
-              ? "Expert pool selected — ready to continue."
-              : "Select an expert pool above to continue."}
+              ? wb
+                ? "SN selected — ready to continue."
+                : "Expert pool selected — ready to continue."
+              : wb
+                ? "Select an SN above to continue."
+                : "Select an expert pool above to continue."}
           </label>
 
           <Button
@@ -234,7 +265,7 @@ export function TorPoolPicker({ sessionId, onSuccess, onError }: TorPoolPickerPr
             disabled={!canApprove}
             onClick={() => void handleApprove()}
           >
-            Approve &amp; Continue
+            {wb ? "Continue with selected SN" : "Approve & Continue"}
           </Button>
         </>
       )}

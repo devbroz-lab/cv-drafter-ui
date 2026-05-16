@@ -16,6 +16,10 @@
  *   Confirmed entries are collected in the fieldEdits batch, exposed via
  *   onEditsChange callback.
  *
+ * Renders the document surface, optional field-edit / reference side rail, and
+ * field-selection tooltip. The parent wraps this component in a shell (e.g.
+ * EditorSidePanel) for layout, backdrop, and motion.
+ *
  * Loading sources:
  *   docxUrl    — public Supabase signed URL (no auth needed, fetched inline)
  *   docxBuffer — pre-fetched ArrayBuffer (caller handles auth)
@@ -76,7 +80,7 @@ type TooltipState = {
   cellLabel: string;
   options: CompositeCellOption[];
   locator: Locator;
-  /** Prefill multi-card instructions when re-opening an edited composite cell */
+  /** Prefill instruction when re-opening this cell and picking the same sub-field */
   initialInstructionsByPath?: Record<string, string>;
 };
 
@@ -86,50 +90,68 @@ function locKey(l: Locator): string {
     : `t-${l.table_index}-${l.row_index}-${l.cell_index}`;
 }
 
-// One distinct color per edit slot (max 5). All class strings must be complete
-// literals so Tailwind JIT can detect and include them in the bundle.
+// Distinct tints per edit slot (max 5). Document + rail use the same palette.
 const EDIT_COLORS = [
   {
     dot: "bg-amber-400",
-    cardBorder: "border-l-amber-400",
-    docParaBorder: "border-amber-400",
-    docParaBg: "bg-amber-50",
-    docCellBg: "bg-amber-50",
-    docCellOutline: "outline outline-2 outline-amber-400",
+    cardBorder: "border-l-amber-400/65",
+    railGlow: "",
+    docPara: "border-l-[3px] border-l-amber-400/80 bg-amber-50/90",
+    docCell: "bg-amber-50 ring-1 ring-inset ring-amber-200/35",
   },
   {
     dot: "bg-violet-400",
-    cardBorder: "border-l-violet-400",
-    docParaBorder: "border-violet-400",
-    docParaBg: "bg-violet-50",
-    docCellBg: "bg-violet-50",
-    docCellOutline: "outline outline-2 outline-violet-400",
+    cardBorder: "border-l-violet-400/65",
+    railGlow: "",
+    docPara: "border-l-[3px] border-l-violet-400/80 bg-violet-50/90",
+    docCell: "bg-violet-50 ring-1 ring-inset ring-violet-200/35",
   },
   {
     dot: "bg-emerald-400",
-    cardBorder: "border-l-emerald-400",
-    docParaBorder: "border-emerald-400",
-    docParaBg: "bg-emerald-50",
-    docCellBg: "bg-emerald-50",
-    docCellOutline: "outline outline-2 outline-emerald-400",
+    cardBorder: "border-l-emerald-400/65",
+    railGlow: "",
+    docPara: "border-l-[3px] border-l-emerald-400/80 bg-emerald-50/90",
+    docCell: "bg-emerald-50 ring-1 ring-inset ring-emerald-200/35",
   },
   {
     dot: "bg-rose-400",
-    cardBorder: "border-l-rose-400",
-    docParaBorder: "border-rose-400",
-    docParaBg: "bg-rose-50",
-    docCellBg: "bg-rose-50",
-    docCellOutline: "outline outline-2 outline-rose-400",
+    cardBorder: "border-l-rose-400/65",
+    railGlow: "",
+    docPara: "border-l-[3px] border-l-rose-400/80 bg-rose-50/90",
+    docCell: "bg-rose-50 ring-1 ring-inset ring-rose-200/35",
   },
   {
     dot: "bg-cyan-400",
-    cardBorder: "border-l-cyan-400",
-    docParaBorder: "border-cyan-400",
-    docParaBg: "bg-cyan-50",
-    docCellBg: "bg-cyan-50",
-    docCellOutline: "outline outline-2 outline-cyan-400",
+    cardBorder: "border-l-cyan-400/65",
+    railGlow: "",
+    docPara: "border-l-[3px] border-l-cyan-400/80 bg-cyan-50/90",
+    docCell: "bg-cyan-50 ring-1 ring-inset ring-cyan-200/35",
   },
 ] as const;
+
+const docParaBase =
+  "group relative rounded-2xl border border-zinc-200/80 border-l-[3px] border-l-white/0 bg-white px-4 py-3.5 text-[15px] leading-[1.65] tracking-[-0.012em] text-zinc-800/95 shadow-sm transition-colors duration-150";
+
+const docParaHover =
+  "hover:border-zinc-300/90 hover:bg-white hover:shadow-md";
+
+const docParaActive =
+  "ring-2 ring-[var(--color-accent)]/45 shadow-sm";
+
+const docParaRef = "border-l-[#d97757]/80 bg-orange-50 ring-1 ring-inset ring-[#d97757]/15";
+
+const docParaDisabled = "cursor-not-allowed opacity-45";
+
+const tdBase =
+  "relative rounded-xl border border-transparent px-3 py-2.5 text-[13px] leading-relaxed text-zinc-800/95 transition-colors duration-150";
+
+const tdHover =
+  "cursor-pointer hover:border-zinc-200/80 hover:bg-white/90 hover:shadow-sm";
+
+const tdActive =
+  "bg-white ring-2 ring-[var(--color-accent)]/40 shadow-sm";
+
+const tdDisabled = "cursor-not-allowed opacity-40";
 
 // GIZ table index → human-readable section name (for display hints)
 const GIZ_TABLE_LABELS: Record<number, string> = {
@@ -259,27 +281,45 @@ function ReferenceItem({
   const snippet = loc.text_content.length > 80 ? loc.text_content.slice(0, 80) + "…" : loc.text_content;
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-xs">
+    <div
+      className={[
+        "rounded-2xl border border-white/[0.06] bg-[var(--color-bg)]/85 p-4 text-xs transition-shadow duration-150",
+        "hover:border-white/[0.1] hover:shadow-md",
+      ].join(" ")}
+    >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="font-medium text-[var(--color-text-muted)]">#{index + 1}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+            #{index + 1}
+          </span>
           {badge}
         </div>
-        <button type="button" onClick={() => onRemove(reference.id)} className="shrink-0 text-[var(--color-text-muted)] hover:text-red-300">×</button>
+        <button
+          type="button"
+          onClick={() => onRemove(reference.id)}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-white/5 hover:text-red-400"
+          aria-label="Remove reference"
+        >
+          ×
+        </button>
       </div>
-      <p className="mt-1.5 italic text-[var(--color-text-muted)]">{snippet || "(empty)"}</p>
-      <button type="button" className="mt-1.5 text-[10px] text-[var(--color-accent)] hover:underline" onClick={() => setExpanded((v) => !v)}>
-        {expanded ? "Hide locator JSON" : "Show locator JSON"}
+      <p className="mt-2 text-[13px] leading-relaxed text-[var(--color-text-muted)]">{snippet || "(empty)"}</p>
+      <button
+        type="button"
+        className="mt-2 text-[10px] font-medium text-[var(--color-accent)]/90 transition-opacity hover:opacity-100"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? "Hide locator" : "Show locator"}
       </button>
       {expanded && (
-        <pre className="mt-1.5 max-h-28 overflow-auto rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-2 font-mono text-[10px] text-[var(--color-text-muted)]">
+        <pre className="mt-2 max-h-28 overflow-auto rounded-xl border border-white/[0.06] bg-black/25 p-3 font-mono text-[10px] leading-relaxed text-[var(--color-text-muted)] editor-scrollbar">
           {JSON.stringify(loc, null, 2)}
         </pre>
       )}
       <textarea
-        className="mt-2 w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-[11px] text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
+        className="mt-3 w-full resize-none rounded-xl border border-white/[0.08] bg-[var(--color-surface)]/80 px-3 py-2.5 text-[12px] text-[var(--color-text)] outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_0_3px_var(--color-accent-soft)]"
         rows={2}
-        placeholder="Add a comment…"
+        placeholder="Add a note…"
         value={reference.comment}
         onChange={(e) => onCommentChange(reference.id, e.target.value)}
       />
@@ -310,36 +350,55 @@ function FieldEditEntryItem({
   const color = EDIT_COLORS[colorIndex];
 
   return (
-    <div className={`rounded-xl border border-[var(--color-border)] border-l-4 ${color.cardBorder} bg-[var(--color-bg)] p-3 text-xs space-y-2`}>
+    <div
+      className={[
+        "rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[var(--color-bg)]/90 to-[var(--color-surface)]/50 p-4 text-xs transition-shadow duration-150",
+        color.railGlow,
+        "hover:border-white/[0.1]",
+      ].join(" ")}
+    >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <span className={`inline-block h-2 w-2 rounded-full ${color.dot}`} />
-          <span className="font-medium text-[var(--color-text-muted)]">Edit #{index + 1}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+            Edit {index + 1}
+          </span>
           {entry.confidence === "mapped" ? (
-            <span className="rounded bg-emerald-950/60 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">mapped</span>
+            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300/95">
+              mapped
+            </span>
           ) : (
-            <span className="rounded bg-amber-950/60 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">verify path</span>
+            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-200/95">
+              verify path
+            </span>
           )}
         </div>
-        <button type="button" onClick={() => onRemove(entry.id)} className="shrink-0 text-[var(--color-text-muted)] hover:text-red-300">×</button>
+        <button
+          type="button"
+          onClick={() => onRemove(entry.id)}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-white/5 hover:text-red-400"
+          aria-label="Remove edit"
+        >
+          ×
+        </button>
       </div>
 
-      <p className="italic text-[var(--color-text-muted)]">{snippet || "(empty)"}</p>
+      <p className="mt-2 text-[12px] leading-relaxed text-[var(--color-text-muted)]">{snippet || "(empty)"}</p>
 
-      <div>
-        <p className="mb-0.5 text-[10px] font-medium text-[var(--color-text-muted)]">Field</p>
-        <p className="font-medium text-[var(--color-text)]">{entry.label}</p>
-        <code className="text-[10px] text-[var(--color-accent)]">{entry.dotPath}</code>
+      <div className="mt-3 space-y-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Field</p>
+        <p className="text-[13px] font-medium text-[var(--color-text)]">{entry.label}</p>
+        <code className="block break-all text-[10px] leading-snug text-[var(--color-accent)]/90">{entry.dotPath}</code>
       </div>
 
-      <div>
-        <label className="mb-1 block text-[10px] font-medium text-[var(--color-text-muted)]">
+      <div className="mt-3">
+        <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
           Instruction
         </label>
         <textarea
-          className="w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-[11px] text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
-          rows={2}
-          placeholder="e.g. Change to Nairobi, Kenya"
+          className="w-full resize-none rounded-xl border border-white/[0.08] bg-[var(--color-surface)]/80 px-3 py-2.5 text-[12px] text-[var(--color-text)] outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_0_3px_var(--color-accent-soft)]"
+          rows={3}
+          placeholder="e.g. Shorten and use active voice…"
           value={entry.instruction}
           onChange={(e) => onInstructionChange(entry.id, e.target.value)}
         />
@@ -355,7 +414,6 @@ function FieldEditEntryItem({
 interface DocxViewerBaseProps {
   onClose: () => void;
   targetFormat?: TargetFormat;
-  embedded?: boolean;
   initialEdits?: FieldEditItem[];
   onSubmitEdits?: () => void;
   submitEditsDisabled?: boolean;
@@ -404,7 +462,6 @@ export function DocxViewer(props: DocxViewerProps) {
     onClose,
     targetFormat = "giz",
     cvData,
-    embedded = false,
     initialEdits = [],
     onSubmitEdits,
     submitEditsDisabled = true,
@@ -682,70 +739,68 @@ export function DocxViewer(props: DocxViewerProps) {
     ? "Click any paragraph or cell to add an edit (max 5)."
     : "Click any paragraph or cell to capture a reference.";
 
+  const showActionDock =
+    mode === "field_editor" || (mode === "reference" && references.length > 0);
+
   return (
     <>
-      <div
-        className={
-          embedded
-            ? ""
-            : "fixed inset-0 z-50 flex items-center justify-center bg-slate-950/72 p-4 backdrop-blur-sm"
-        }
-        onClick={embedded ? undefined : onClose}
-      >
-        <div
-          className={
-            embedded
-              ? "flex h-[calc(100vh-120px)] min-h-[680px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface)]"
-              : "flex h-[92vh] w-[min(1500px,96vw)] flex-col overflow-hidden rounded-3xl bg-[var(--color-surface)] shadow-[0_30px_80px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.06)]"
-          }
-          onClick={embedded ? undefined : (e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] bg-gradient-to-r from-[var(--color-surface-raised)] via-[var(--color-surface)] to-[var(--color-surface-raised)] px-5 py-3.5">
-            <div className="space-y-1">
-              <span className="text-sm font-semibold tracking-tight text-[var(--color-text)]">
-                {mode === "field_editor" ? "Edit Document" : "Document Viewer"}
+      <div className="editor-motion-safe flex h-full min-h-0 w-full flex-col overflow-hidden bg-transparent">
+        <header className="relative z-20 flex shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] bg-zinc-950/55 px-5 py-4">
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-[15px] font-semibold tracking-[-0.03em] text-[var(--color-text)]">
+                {mode === "field_editor" ? "Field workspace" : "Reference workspace"}
+              </h1>
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+                {mode === "field_editor" ? "Live edit" : "Live capture"}
               </span>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-0.5 text-[10px] font-medium text-[var(--color-text-muted)]">
-                  {mode === "field_editor" ? "Interactive edit mode" : "Read and reference mode"}
-                </span>
-                <span className="rounded-full bg-[var(--color-accent)]/15 px-2.5 py-0.5 text-[10px] font-medium text-[var(--color-accent)]">
-                  Live document
-                </span>
-              </div>
-              {mode === "field_editor" && (
-                <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
-                  Click any field to add an edit instruction — up to 5 total
-                </p>
-              )}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close document viewer"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
-            >
-              ×
-            </button>
+            <p className="max-w-xl text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+              {mode === "field_editor"
+                ? "Build a batch of up to five edits on the canvas, then apply when you are ready."
+                : "Click the canvas to record locators and notes for export."}
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close workspace"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[var(--color-text-muted)] transition-all duration-200 hover:border-white/14 hover:bg-white/[0.09] hover:text-[var(--color-text)] active:scale-[0.96]"
+          >
+            <span className="text-[20px] leading-none">×</span>
+          </button>
+        </header>
 
-        {/* Body */}
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          {/* Document pane */}
-          <div className="min-w-0 flex-1 overflow-y-auto bg-[#eef1f5] px-4 py-4 lg:px-6 lg:py-6">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+          {/* Canvas — grows with panel; keeps majority width beside inspector */}
+          <div
+            className="editor-scrollbar relative min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 contain-layout md:px-5 md:py-7 lg:px-7 lg:py-8"
+            style={{ background: "var(--editor-desk-bg)" }}
+          >
             {loading && (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-sm text-gray-400">Loading document…</p>
+              <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-3">
+                <span className="relative flex h-9 w-9">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-accent)]/25" />
+                  <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5">
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+                  </span>
+                </span>
+                <p className="text-[12px] font-medium text-[var(--color-text-muted)]">Preparing canvas…</p>
               </div>
             )}
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                <strong>Failed to load document:</strong> {error}
+              <div className="mx-auto max-w-lg rounded-2xl border border-red-500/25 bg-red-950/40 px-5 py-4 text-[13px] leading-relaxed text-red-200/95">
+                <strong className="font-semibold text-red-100">Could not load document</strong>
+                <p className="mt-2 text-red-200/80">{error}</p>
               </div>
             )}
             {!loading && !error && (
-              <div className="mx-auto max-w-[980px] space-y-2 rounded-2xl border border-gray-200/90 bg-white p-5 shadow-[0_16px_48px_rgba(15,23,42,0.14)] lg:p-7">
+              <div
+                className="w-full max-w-none space-y-3 rounded-[1.35rem] p-5 shadow-[var(--editor-paper-shadow)] md:space-y-3.5 md:p-8 lg:p-9"
+                style={{
+                  background: "linear-gradient(180deg, #fdfefe 0%, #f6f8fa 55%, #f1f4f8 100%)",
+                }}
+              >
                 {blocks.map((block) => {
                   if (block.kind === "paragraph") {
                     if (!block.text.trim()) return null;
@@ -766,17 +821,16 @@ export function DocxViewer(props: DocxViewerProps) {
                           )
                         }
                         className={[
-                          "rounded px-3 py-2.5 text-[15px] leading-relaxed text-gray-800 transition-all border-l-4",
-                          atMax && !isReferenced && !isActive
-                            ? "cursor-not-allowed opacity-50 border-transparent bg-gray-50"
-                            : "cursor-pointer hover:border-blue-400 hover:bg-blue-50",
+                          docParaBase,
+                          docParaHover,
+                          atMax && !isReferenced && !isActive ? docParaDisabled : "cursor-pointer",
                           isActive
-                            ? "border-blue-500 bg-blue-100 ring-1 ring-blue-400"
+                            ? `${docParaActive} bg-white`
                             : editColor
-                            ? `${editColor.docParaBorder} ${editColor.docParaBg}`
+                            ? editColor.docPara
                             : isReferenced
-                            ? "border-[#d97757] bg-orange-50"
-                            : "border-transparent bg-gray-50",
+                            ? docParaRef
+                            : "",
                         ].join(" ")}
                         title={
                           atMax && !isReferenced
@@ -791,9 +845,13 @@ export function DocxViewer(props: DocxViewerProps) {
 
                   const atMax = mode === "field_editor" && fieldEdits.length >= 5;
                   return (
-                    <div key={`t-${block.tableIndex}`} className="my-4 overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-2">
-                      <table className="w-full border-collapse text-sm text-gray-800">
-                        <tbody>
+                    <div
+                      key={`t-${block.tableIndex}`}
+                      className="my-5 overflow-hidden rounded-2xl border border-white/40 bg-white/50 p-1.5 shadow-sm"
+                    >
+                      <div className="overflow-x-auto rounded-[1.1rem] editor-scrollbar">
+                        <table className="w-full min-w-[280px] border-separate border-spacing-1.5 text-[13px] text-zinc-800/95">
+                          <tbody>
                           {block.rows.map((row) => (
                             <tr key={row.rowIndex}>
                               {row.cells.map((cell) => {
@@ -822,31 +880,30 @@ export function DocxViewer(props: DocxViewerProps) {
                                       )
                                     }
                                     className={[
-                                      "border border-gray-200 px-2.5 py-2 transition-all relative",
-                                      atMax && !isReferenced && !isActive
-                                        ? "cursor-not-allowed opacity-50"
-                                        : "cursor-pointer hover:bg-blue-50 hover:outline hover:outline-1 hover:outline-blue-400",
+                                      tdBase,
+                                      atMax && !isReferenced && !isActive ? tdDisabled : tdHover,
                                       isActive
-                                        ? "bg-blue-100 outline outline-2 outline-blue-500"
+                                        ? tdActive
                                         : editColor
-                                        ? `${editColor.docCellBg} ${editColor.docCellOutline}`
+                                        ? editColor.docCell
                                         : isReferenced
-                                        ? "bg-orange-50 outline outline-1 outline-[#d97757]"
-                                        : "",
+                                        ? "bg-orange-50/90 ring-1 ring-inset ring-[#d97757]/25"
+                                        : "bg-white/50",
                                     ].join(" ")}
                                     title={
                                       `${tableLabels[block.tableIndex] ?? `Table ${block.tableIndex}`} · r${row.rowIndex}c${cell.cellIndex}` +
                                       (composite ? " — click to choose field" : "")
                                     }
                                   >
-                                    {cell.text || <span className="italic text-gray-300">empty</span>}
-                                    {/* Composite indicator */}
+                                    {cell.text || (
+                                      <span className="italic text-zinc-400">empty</span>
+                                    )}
                                     {composite && mode === "field_editor" && (
                                       <span
-                                        className="absolute top-0.5 right-0.5 text-[8px] text-blue-400 leading-none select-none"
+                                        className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-accent)]/20 text-[10px] font-semibold text-[var(--color-accent)]"
                                         aria-hidden="true"
                                       >
-                                        ▾
+                                        ⌄
                                       </span>
                                     )}
                                   </td>
@@ -856,6 +913,7 @@ export function DocxViewer(props: DocxViewerProps) {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                   );
                 })}
@@ -863,20 +921,24 @@ export function DocxViewer(props: DocxViewerProps) {
             )}
           </div>
 
-          {/* Right panel */}
-          <div className="flex w-72 shrink-0 flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)]/95">
-            <div className="shrink-0 border-b border-[var(--color-border)] px-4 py-3">
-              <p className="text-xs font-semibold tracking-wide text-[var(--color-text)]">{rightPanelTitle}</p>
-              <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">{rightPanelEmpty}</p>
+          {/* Inspector */}
+          <aside className="flex max-h-[36vh] min-h-0 w-full shrink-0 flex-col border-t border-white/[0.06] bg-zinc-950/50 md:max-h-none md:w-[15.5rem] md:shrink-0 md:border-l md:border-t-0 lg:w-[16.5rem]">
+            <div className="shrink-0 space-y-1 px-5 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">
+                {rightPanelTitle}
+              </p>
+              <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">{rightPanelEmpty}</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[var(--color-surface-muted)]/20">
+            <div className="editor-scrollbar flex-1 space-y-3 overflow-y-auto px-4 pb-4 pt-1 md:px-5">
               {mode === "field_editor" ? (
                 fieldEdits.length === 0 ? (
-                  <p className="mt-8 rounded-lg border border-dashed border-[var(--color-border)] p-4 text-center text-xs italic text-[var(--color-text-muted)]">
-                    No edits yet.
-                    <br />Click content to add.
-                  </p>
+                  <div className="mt-6 rounded-2xl border border-dashed border-white/[0.1] bg-white/[0.03] px-5 py-10 text-center transition-colors duration-300 hover:border-white/[0.14]">
+                    <p className="text-[12px] font-medium text-[var(--color-text-muted)]">No edits queued</p>
+                    <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]/90">
+                      Click the canvas to capture a field and add an instruction.
+                    </p>
+                  </div>
                 ) : (
                   fieldEdits.map((entry, i) => (
                     <FieldEditEntryItem
@@ -889,75 +951,89 @@ export function DocxViewer(props: DocxViewerProps) {
                     />
                   ))
                 )
-              ) : (
-                references.length === 0 ? (
-                  <p className="mt-8 rounded-lg border border-dashed border-[var(--color-border)] p-4 text-center text-xs italic text-[var(--color-text-muted)]">
-                    No references yet.
-                    <br />Click content in the document to add.
+              ) : references.length === 0 ? (
+                <div className="mt-6 rounded-2xl border border-dashed border-white/[0.1] bg-white/[0.03] px-5 py-10 text-center transition-colors duration-300 hover:border-white/[0.14]">
+                  <p className="text-[12px] font-medium text-[var(--color-text-muted)]">No references yet</p>
+                  <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]/90">
+                    Select paragraphs or cells on the canvas to list them here.
                   </p>
-                ) : (
-                  references.map((ref, i) => (
-                    <ReferenceItem
-                      key={ref.id}
-                      reference={ref}
-                      index={i}
-                      onCommentChange={updateComment}
-                      onRemove={removeReference}
-                      tableLabels={tableLabels}
-                    />
-                  ))
-                )
+                </div>
+              ) : (
+                references.map((ref, i) => (
+                  <ReferenceItem
+                    key={ref.id}
+                    reference={ref}
+                    index={i}
+                    onCommentChange={updateComment}
+                    onRemove={removeReference}
+                    tableLabels={tableLabels}
+                  />
+                ))
               )}
             </div>
+          </aside>
+        </div>
 
-            {/* Footer actions */}
-            {mode === "reference" && references.length > 0 && (
-              <div className="shrink-0 border-t border-[var(--color-border)] p-3 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => void copyAllJson()}
-                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-xs font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] transition-colors"
-                >
-                  {copiedAll ? "Copied!" : "Copy all as JSON"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReferences([])}
-                  className="w-full rounded-xl px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-red-300 transition-colors"
-                >
-                  Clear all
-                </button>
-              </div>
-            )}
-            {mode === "field_editor" && fieldEdits.length > 0 && (
-              <div className="shrink-0 space-y-2 border-t border-[var(--color-border)] p-3">
-                {onSubmitEdits && (
+        {showActionDock && (
+          <footer className="relative z-20 shrink-0 border-t border-white/[0.08] bg-zinc-950/70 px-5 py-4">
+            {mode === "field_editor" && onSubmitEdits ? (
+              <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[11px] text-[var(--color-text-muted)]">
+                  {fieldEdits.length === 0
+                    ? "Queue edits on the canvas, then apply to run the field editor."
+                    : `${fieldEdits.length} edit${fieldEdits.length === 1 ? "" : "s"} ready — verify instructions before applying.`}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFieldEdits([]);
+                      notifyEditsChange([]);
+                    }}
+                    className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-[12px] font-medium text-[var(--color-text-muted)] transition-all duration-200 hover:border-white/15 hover:bg-white/[0.08] hover:text-[var(--color-text)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
+                    disabled={fieldEdits.length === 0}
+                  >
+                    Clear all
+                  </button>
                   <button
                     type="button"
                     disabled={submitEditsDisabled}
                     onClick={onSubmitEdits}
-                    className="w-full rounded-xl bg-[var(--color-accent)] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#cf7256] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl bg-gradient-to-b from-[#e89572] to-[var(--color-accent)] px-5 py-2.5 text-[12px] font-semibold text-white shadow-[0_8px_28px_-6px_rgba(217,119,87,0.55)] transition-all duration-200 hover:shadow-[0_12px_36px_-6px_rgba(217,119,87,0.65)] hover:brightness-[1.03] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                   >
                     {submitEditsBusy
-                      ? "Applying edits…"
-                      : `Submit ${fieldEdits.length} edit${fieldEdits.length !== 1 ? "s" : ""}`}
+                      ? "Applying…"
+                      : fieldEdits.length === 0
+                      ? "Apply edits"
+                      : `Apply ${fieldEdits.length} edit${fieldEdits.length === 1 ? "" : "s"}`}
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFieldEdits([]);
-                    notifyEditsChange([]);
-                  }}
-                  className="w-full rounded-xl px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-red-300 transition-colors"
-                >
-                  Clear all edits
-                </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[11px] text-[var(--color-text-muted)]">
+                  {references.length} reference{references.length === 1 ? "" : "s"} captured
+                </p>
+                <div className="flex flex-wrap gap-2 sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setReferences([])}
+                    className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-[12px] font-medium text-[var(--color-text-muted)] transition-all duration-200 hover:border-white/15 hover:bg-white/[0.08] hover:text-[var(--color-text)] active:scale-[0.98]"
+                  >
+                    Clear all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void copyAllJson()}
+                    className="rounded-xl border border-white/[0.1] bg-white/[0.08] px-5 py-2.5 text-[12px] font-semibold text-[var(--color-text)] transition-all duration-200 hover:bg-white/[0.12] active:scale-[0.98]"
+                  >
+                    {copiedAll ? "Copied" : "Copy JSON"}
+                  </button>
+                </div>
               </div>
             )}
-          </div>
-        </div>
-        </div>
+          </footer>
+        )}
       </div>
 
       {/* Tooltip — rendered as portal outside the viewer */}

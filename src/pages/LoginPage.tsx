@@ -2,11 +2,23 @@ import { useState } from "react";
 import { GoogleLogin } from "@react-oauth/google";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { PublicClientApplication } from "@azure/msal-browser";
+import { motion, useReducedMotion } from "framer-motion";
 
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { formatApiError } from "../lib/api";
-import { Button, Card, Input, Label } from "../components/ui";
+import { Card } from "../components/ui";
+
+const PROMO_FEATURES = [
+  "Fast staged flow from extraction to final render",
+  "Human approval checkpoints with change history",
+  "Secure access with email, Google, or Microsoft",
+];
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
+};
 
 export function LoginPage() {
   const { accessToken, loading, signIn, signInWithGoogle, signInWithMicrosoft } = useAuth();
@@ -16,10 +28,20 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [msBusy, setMsBusy] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   const microsoftClientId = import.meta.env.VITE_MICROSOFT_CLIENT_ID;
 
   if (!loading && accessToken) return <Navigate to="/" replace />;
+
+  const motionProps = reduceMotion
+    ? {}
+    : {
+        initial: "hidden" as const,
+        animate: "show" as const,
+        variants: fadeUp,
+        transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const },
+      };
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,124 +91,133 @@ export function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-16">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-16 top-12 h-72 w-72 rounded-full bg-[var(--color-accent-soft)] blur-3xl" />
-        <div className="absolute -right-16 bottom-10 h-72 w-72 rounded-full bg-[var(--color-accent-soft)] blur-3xl" />
-      </div>
-
-      <div className="relative mx-auto grid w-full max-w-5xl gap-8 lg:grid-cols-[1.1fr,0.9fr]">
-        <Card className="hidden border-[var(--color-accent-soft)] bg-[var(--color-surface-raised)]/70 p-10 lg:block">
-          <span className="inline-block rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1 text-xs font-medium text-[var(--color-text-muted)]">
-            CV Drafter
-          </span>
-          <h1 className="mt-6 text-4xl font-semibold leading-tight text-[var(--color-text)]">
-            Build interview-ready CVs with the guided agent pipeline.
-          </h1>
-          <p className="mt-4 max-w-md text-base text-[var(--color-text-muted)]">
-            Sign in to start new sessions, review checkpoints, and download polished outputs in one workspace.
-          </p>
-          <div className="mt-8 grid gap-3 text-sm text-[var(--color-text-muted)]">
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
-              Fast staged flow from extraction to final render
-            </div>
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
-              Human approval checkpoints with change history
-            </div>
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
-              Secure account access with email or Google
-            </div>
-          </div>
-        </Card>
-
-        <Card className="border-[var(--color-border)] bg-[var(--color-surface)]/95 p-8">
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-[var(--color-text)]">Welcome back</h2>
-            <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-              Sign in to continue your CV drafting sessions.
+    <div className="auth-page session-workspace-root">
+      <motion.div className="auth-page__shell" {...motionProps}>
+        <div className="auth-page__layout">
+          <Card tone="session" className="auth-page__panel auth-page__panel--promo">
+            <span className="auth-page__badge">CV Reformatter</span>
+            <h1 className="auth-page__promo-title">
+              Build interview-ready CVs with the guided agent pipeline.
+            </h1>
+            <p className="auth-page__promo-lead">
+              Sign in to start new sessions, review checkpoints, and download polished outputs in
+              one workspace.
             </p>
-          </div>
-
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-              />
+            <div className="auth-page__features">
+              {PROMO_FEATURES.map((text) => (
+                <div key={text} className="auth-page__feature">
+                  {text}
+                </div>
+              ))}
             </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={busy}>
-              {busy ? "Signing in…" : "Sign in"}
-            </Button>
-          </form>
+          </Card>
 
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-[var(--color-border)]" />
-            <span className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">or</span>
-            <div className="h-px flex-1 bg-[var(--color-border)]" />
-          </div>
+          <motion.div
+            {...(reduceMotion
+              ? {}
+              : {
+                  initial: { opacity: 0, y: 12 },
+                  animate: { opacity: 1, y: 0 },
+                  transition: { duration: 0.5, delay: 0.06, ease: [0.22, 1, 0.36, 1] },
+                })}
+          >
+            <Card tone="session" className="auth-page__panel auth-page__panel--form">
+              <header className="auth-page__form-head">
+                <p className="auth-page__kicker">Sign in</p>
+                <h2 className="auth-page__title">Welcome back</h2>
+                <p className="auth-page__subtitle">Continue your CV drafting sessions.</p>
+              </header>
 
-          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
-            <div className="space-y-3">
-              <div className="flex justify-center">
-                <Button
+              <form onSubmit={onSubmit} className="auth-page__form" noValidate>
+                <div className="auth-page__field">
+                  <label className="auth-page__label" htmlFor="email">
+                    Email
+                  </label>
+                  <input
+                    id="email"
+                    className="auth-page__input"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                  />
+                </div>
+                <div className="auth-page__field">
+                  <label className="auth-page__label" htmlFor="password">
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    className="auth-page__input"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="session-btn-primary auth-page__submit"
+                  disabled={busy}
+                >
+                  {busy ? "Signing in…" : "Sign in"}
+                </button>
+              </form>
+
+              <div className="auth-page__divider" role="separator">
+                <span className="auth-page__divider-line" />
+                <span className="auth-page__divider-label">or</span>
+                <span className="auth-page__divider-line" />
+              </div>
+
+              <div className="auth-page__sso">
+                <button
                   type="button"
-                  variant="secondary"
-                  className="w-full"
+                  className="auth-page__sso-btn"
                   disabled={msBusy}
                   onClick={() => void onMicrosoftSignIn()}
                 >
                   {msBusy ? "Signing in with Microsoft…" : "Continue with Microsoft"}
-                </Button>
+                </button>
+                <div className="auth-page__google">
+                  <GoogleLogin
+                    onSuccess={async (credentialResponse) => {
+                      if (!credentialResponse.credential) {
+                        toast("Google login did not return a credential.", "error");
+                        return;
+                      }
+                      try {
+                        await signInWithGoogle(credentialResponse.credential);
+                        navigate("/", { replace: true });
+                        toast("Signed in with Google.");
+                      } catch (err: unknown) {
+                        toast(formatApiError(err), "error");
+                      }
+                    }}
+                    onError={() => toast("Google sign-in failed.", "error")}
+                    theme="filled_black"
+                    size="large"
+                    text="signin_with"
+                    shape="rectangular"
+                    width="100%"
+                  />
+                </div>
               </div>
-              <GoogleLogin
-                onSuccess={async (credentialResponse) => {
-                  if (!credentialResponse.credential) {
-                    toast("Google login did not return a credential.", "error");
-                    return;
-                  }
-                  try {
-                    await signInWithGoogle(credentialResponse.credential);
-                    navigate("/", { replace: true });
-                    toast("Signed in with Google.");
-                  } catch (err: unknown) {
-                    toast(formatApiError(err), "error");
-                  }
-                }}
-                onError={() => toast("Google sign-in failed.", "error")}
-                theme="outline"
-                size="large"
-                text="signin_with"
-                shape="rectangular"
-              />
-            </div>
-          </div>
 
-          <p className="mt-6 text-center text-sm text-[var(--color-text-muted)]">
-            Need an account?{" "}
-            <Link className="text-[var(--color-accent)] hover:underline" to="/signup">
-              Create one
-            </Link>
-          </p>
-        </Card>
-      </div>
+              <p className="auth-page__footer">
+                Need an account?{" "}
+                <Link className="auth-page__link" to="/signup">
+                  Create one
+                </Link>
+              </p>
+            </Card>
+          </motion.div>
+        </div>
+      </motion.div>
     </div>
   );
 }

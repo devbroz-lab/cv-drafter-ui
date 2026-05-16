@@ -1,87 +1,164 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+
+import clsx from "clsx";
 
 import { useAuth } from "../contexts/AuthContext";
 import { loadRecentSessions, removeRecentSession } from "../lib/recentSessions";
-import { Button, Card } from "../components/ui";
-import { useState } from "react";
+import { Card } from "../components/ui";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0 },
+};
+
+function OpenIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="home-page__btn-open-icon" aria-hidden>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 8h9M9 5l3 3-3 3"
+      />
+    </svg>
+  );
+}
+
+function CtaIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="home-page__cta-icon" aria-hidden>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        d="M8 3.5v9M4.5 8h7"
+      />
+    </svg>
+  );
+}
 
 export function HomePage() {
   const { user } = useAuth();
   const [, bump] = useState(0);
   const recent = loadRecentSessions();
+  const reduceMotion = useReducedMotion();
+
+  const motionProps = reduceMotion
+    ? {}
+    : {
+        initial: "hidden" as const,
+        animate: "show" as const,
+        variants: fadeUp,
+        transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const },
+      };
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-7">
-      <Card className="p-5 md:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1.5">
-            <h1 className="text-3xl font-semibold tracking-tight text-[var(--color-text)]">Home</h1>
-            <p className="text-sm leading-relaxed text-[var(--color-text-muted)]">
-              Signed in as{" "}
-              <span className="font-medium text-[var(--color-text)]">{user?.email ?? user?.id}</span>
-            </p>
-            <p className="text-xs text-[var(--color-text-muted)]">
-              Continue from a recent session or start a new reformat.
-            </p>
-          </div>
-
-          <Link to="/sessions/new">
-            <Button className="w-full sm:w-auto">Start new reformat</Button>
+    <div className="session-workspace-root home-page w-full min-w-0 pb-14">
+      <motion.header className="home-page__hero" {...motionProps}>
+        <p className="home-page__kicker">Workspace</p>
+        <h1 className="home-page__title">Home</h1>
+        <p className="home-page__lead">Continue a recent session or start a new reformat.</p>
+        <span className="home-page__identity">
+          Signed in as <span className="home-page__email">{user?.email ?? user?.id}</span>
+        </span>
+        <div className="home-page__actions">
+          <Link to="/sessions/new" className="session-btn-primary home-page__cta">
+            <CtaIcon />
+            Start new reformat
           </Link>
         </div>
-      </Card>
+      </motion.header>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight text-[var(--color-text)]">Recent sessions</h2>
+      <motion.section
+        className="home-page__section"
+        aria-labelledby="recent-sessions-heading"
+        {...(reduceMotion
+          ? {}
+          : {
+              initial: "hidden",
+              animate: "show",
+              variants: fadeUp,
+              transition: { duration: 0.45, delay: 0.06, ease: [0.22, 1, 0.36, 1] },
+            })}
+      >
+        <div className="home-page__section-head">
+          <h2 id="recent-sessions-heading" className="home-page__section-title">
+            Recent sessions
+          </h2>
+          <p className="home-page__section-desc">Stored locally in this browser</p>
+        </div>
+
         {recent.length === 0 ? (
-          <Card>
-            <p className="text-sm text-[var(--color-text-muted)]">
-              No sessions yet — create one to see it listed here locally.
+          <Card tone="session" className="home-page__empty">
+            <p className="home-page__empty-text">
+              No sessions yet — create one to see it listed here.
             </p>
           </Card>
         ) : (
-          <ul className="space-y-3">
-            {recent.map((s) => (
-              <li key={s.id}>
-                <Card className="flex flex-wrap items-center justify-between gap-4 border-[var(--color-border)]/80 p-4 md:p-5">
-                  <div className="min-w-0">
-                    <Link
-                      className="block truncate text-base font-medium text-[var(--color-accent)] hover:underline"
-                      to={`/sessions/${s.id}`}
-                    >
-                      {s.label}
-                    </Link>
-                    <div className="mt-1.5 text-xs text-[var(--color-text-muted)]">
-                      <span className="rounded-full border border-[var(--color-border)] px-2 py-0.5">
-                        {s.targetFormat}
-                      </span>
-                      <span className="mx-2">·</span>
-                      <span>{new Date(s.updatedAt).toLocaleString()}</span>
+          <ul className="home-page__list">
+            {recent.map((s, index) => (
+              <motion.li
+                key={s.id}
+                {...(reduceMotion
+                  ? {}
+                  : {
+                      initial: { opacity: 0, y: 8 },
+                      animate: { opacity: 1, y: 0 },
+                      transition: {
+                        duration: 0.4,
+                        delay: 0.08 + index * 0.04,
+                        ease: [0.22, 1, 0.36, 1],
+                      },
+                    })}
+              >
+                <Card tone="session" className="home-page__session-card">
+                  <article className="home-page__session-row">
+                    <div className="home-page__session-main">
+                      <Link className="home-page__session-link" to={`/sessions/${s.id}`}>
+                        {s.label}
+                      </Link>
+                      <div className="home-page__session-meta">
+                        <span className="home-page__format-pill">
+                          <span>Format</span>
+                          <strong className="capitalize">{s.targetFormat.replace(/_/g, " ")}</strong>
+                        </span>
+                        <span className="home-page__meta-dot" aria-hidden />
+                        <time
+                          className="home-page__session-date"
+                          dateTime={s.updatedAt}
+                        >
+                          {new Date(s.updatedAt).toLocaleString()}
+                        </time>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Link to={`/sessions/${s.id}`}>
-                      <Button variant="secondary" type="button">
+                    <div className="home-page__session-actions">
+                      <Link to={`/sessions/${s.id}`} className="home-page__btn-open">
                         Open
-                      </Button>
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      type="button"
-                      onClick={() => {
-                        removeRecentSession(s.id);
-                        bump((x) => x + 1);
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  </div>
+                        <OpenIcon />
+                      </Link>
+                      <button
+                        type="button"
+                        className={clsx("home-page__btn--ghost")}
+                        onClick={() => {
+                          removeRecentSession(s.id);
+                          bump((x) => x + 1);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </article>
                 </Card>
-              </li>
+              </motion.li>
             ))}
           </ul>
         )}
-      </section>
+      </motion.section>
     </div>
   );
 }

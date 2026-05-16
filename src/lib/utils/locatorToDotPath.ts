@@ -245,10 +245,10 @@ function gizTableToDotPath(
           kind: "composite",
           dotPath: "",
           confidence: "mapped",
-          label: `Project ${i + 1} — name / features`,
+          label: `Project ${i + 1} — name / description`,
           options: [
-            { label: "Project Name",          dotPath: `relevant_projects[${i}].project_name`          },
-            { label: "Main Project Features", dotPath: `relevant_projects[${i}].main_project_features` },
+            { label: "Project name",          dotPath: `relevant_projects[${i}].project_name`          },
+            { label: "Project description",   dotPath: `relevant_projects[${i}].main_project_features` },
           ],
         };
       break;

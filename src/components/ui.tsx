@@ -9,13 +9,13 @@ export function Button({
   return (
     <button
       className={clsx(
-        "inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-150",
+        "inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition-[transform,box-shadow,background-color,border-color,color,opacity] duration-200 ease-out",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface)]",
         "disabled:cursor-not-allowed disabled:opacity-50",
         variant === "primary" &&
-          "bg-[var(--color-accent)] text-white shadow-[0_6px_16px_rgba(217,119,87,0.28)] hover:-translate-y-[1px] hover:bg-[#cf7256]",
+          "bg-[var(--color-accent)] text-white shadow-[0_6px_20px_rgba(217,119,87,0.32)] hover:-translate-y-px hover:bg-[#cf7256] hover:shadow-[0_10px_28px_rgba(217,119,87,0.38)] active:translate-y-0 active:scale-[0.98]",
         variant === "secondary" &&
-          "border border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text)] hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-muted)]",
+          "border border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text)] hover:border-[var(--color-accent)]/45 hover:bg-[var(--color-surface-muted)] active:scale-[0.98]",
         variant === "ghost" && "text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]",
         variant === "danger" && "bg-red-900/70 text-white hover:bg-red-800",
         className,
@@ -59,11 +59,22 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   );
 }
 
-export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+export function Card({
+  children,
+  className,
+  tone = "default",
+}: {
+  children: React.ReactNode;
+  className?: string;
+  /** `session` — layered glassy surface for workspace / pipeline panels */
+  tone?: "default" | "session";
+}) {
   return (
     <div
       className={clsx(
-        "rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm",
+        "rounded-2xl p-6",
+        tone === "default" && "border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm",
+        tone === "session" && "session-panel session-card p-7 sm:p-8",
         className,
       )}
     >
