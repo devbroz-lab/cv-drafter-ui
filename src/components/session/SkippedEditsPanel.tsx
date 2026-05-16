@@ -59,7 +59,7 @@ export function SkippedEditsPanel({
                     initial={reduce ? false : { opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: reduce ? 0 : i * 0.05 }}
-                    className="rounded-xl bg-black/25 px-3 py-2.5 ring-1 ring-white/[0.06]"
+                    className="session-subcard px-3 py-2.5"
                   >
                     <code className="text-xs text-red-200/90">{item.path}</code>
                     {item.reason && (

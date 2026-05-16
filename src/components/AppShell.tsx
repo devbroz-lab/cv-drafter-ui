@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 
 import clsx from "clsx";
 
@@ -6,55 +7,171 @@ import { useAuth } from "../contexts/AuthContext";
 
 import { Button } from "./ui";
 
-const navClass = ({ isActive }: { isActive: boolean }) =>
-  clsx(
-    "block rounded-lg px-3 py-2 text-sm transition-colors",
-    isActive ? "bg-[var(--color-surface-muted)] text-[var(--color-text)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]",
-  );
+const SIDEBAR_STORAGE_KEY = "cv-drafter-sidebar-collapsed";
+
+function NavIcon({ name }: { name: "home" | "new" | "settings" | "signout" }) {
+  const className = "h-[1.125rem] w-[1.125rem] shrink-0";
+  switch (name) {
+    case "home":
+      return (
+        <svg viewBox="0 0 20 20" className={className} aria-hidden>
+          <path
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M3.5 8.5 10 3l6.5 5.5V16a1 1 0 0 1-1 1h-4v-5H8.5v5h-4a1 1 0 0 1-1-1V8.5Z"
+          />
+        </svg>
+      );
+    case "new":
+      return (
+        <svg viewBox="0 0 20 20" className={className} aria-hidden>
+          <path
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            d="M10 4v12M4 10h12"
+          />
+        </svg>
+      );
+    case "settings":
+      return (
+        <svg viewBox="0 0 20 20" className={className} aria-hidden>
+          <path
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Zm6.2-2.5 1.3.2a1 1 0 0 1 .8 1.2l-.2 1.3a1 1 0 0 0 .4.9l1.1 1a1 1 0 0 1 0 1.4l-1.1 1a1 1 0 0 0-.4.9l.2 1.3a1 1 0 0 1-1.2.8l-1.3-.2a1 1 0 0 0-.9.4l-1 1.1a1 1 0 0 1-1.4 0l-1-1.1a1 1 0 0 0-.9-.4l-1.3.2a1 1 0 0 1-1.2-.8l.2-1.3a1 1 0 0 0-.4-.9l-1.1-1a1 1 0 0 1 0-1.4l1.1-1a1 1 0 0 0 .4-.9l-.2-1.3a1 1 0 0 1 1.2-.8l1.3.2a1 1 0 0 0 .9-.4l1-1.1a1 1 0 0 1 1.4 0l1 1.1a1 1 0 0 0 .9.4Z"
+          />
+        </svg>
+      );
+    case "signout":
+      return (
+        <svg viewBox="0 0 20 20" className={className} aria-hidden>
+          <path
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M7 17H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h3M13 14l4-3-4-3M8 11h8"
+          />
+        </svg>
+      );
+  }
+}
 
 export function AppShell() {
   const { signOut } = useAuth();
   const location = useLocation();
+  const isNewSession = location.pathname === "/sessions/new";
   const isSessionWorkspace = /^\/sessions\/[^/]+$/.test(location.pathname);
+  const isSessionChrome = isNewSession || isSessionWorkspace;
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, sidebarCollapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [sidebarCollapsed]);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((c) => !c);
+  }, []);
+
+  const navClass = ({ isActive }: { isActive: boolean }) =>
+    clsx("app-shell-nav-link", isActive && "app-shell-nav-link--active");
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="flex w-[240px] shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)]">
-        <div className="border-b border-[var(--color-border)] px-4 py-5">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-            CV Reformatter
+    <div
+      className={clsx(
+        "app-shell flex min-h-screen",
+        sidebarCollapsed && "app-shell--sidebar-collapsed",
+        isSessionChrome && "app-shell--session",
+      )}
+    >
+      <aside className="app-shell-sidebar" aria-label="Main navigation">
+        <div className="app-shell-sidebar-head">
+          <div className="app-shell-sidebar-brand min-w-0">
+            <div className="app-shell-sidebar-eyebrow truncate">CV Reformatter</div>
+            <div className="app-shell-sidebar-title truncate">Workspace</div>
           </div>
-          <div className="mt-1 text-lg font-medium text-[var(--color-text)]">Workspace</div>
+          <button
+            type="button"
+            className="app-shell-sidebar-toggle"
+            onClick={toggleSidebar}
+            aria-expanded={!sidebarCollapsed}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden>
+              <path
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d={sidebarCollapsed ? "M7 5l5 5-5 5" : "M13 5l-5 5 5 5"}
+              />
+            </svg>
+          </button>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 p-3">
-          <NavLink to="/" end className={navClass}>
-            Home
+
+        <nav className="app-shell-sidebar-nav">
+          <NavLink to="/" end className={navClass} title="Home">
+            <NavIcon name="home" />
+            <span className="app-shell-nav-label">Home</span>
           </NavLink>
-          <NavLink to="/sessions/new" className={navClass}>
-            New reformat
+          <NavLink to="/sessions/new" className={navClass} title="New reformat">
+            <NavIcon name="new" />
+            <span className="app-shell-nav-label">New reformat</span>
           </NavLink>
-          <NavLink to="/settings" className={navClass}>
-            Settings & health
+          <NavLink to="/settings" className={navClass} title="Settings & health">
+            <NavIcon name="settings" />
+            <span className="app-shell-nav-label">Settings & health</span>
           </NavLink>
         </nav>
-        <div className="border-t border-[var(--color-border)] p-3">
-          <Button variant="ghost" className="w-full justify-start" type="button" onClick={() => void signOut()}>
-            Sign out
+
+        <div className="app-shell-sidebar-foot">
+          <Button
+            variant="ghost"
+            className="app-shell-signout w-full"
+            type="button"
+            title="Sign out"
+            onClick={() => void signOut()}
+          >
+            <NavIcon name="signout" />
+            <span className="app-shell-nav-label">Sign out</span>
           </Button>
         </div>
       </aside>
+
       <main
         className={clsx(
-          "min-w-0 flex-1 bg-[var(--color-bg)]",
-          isSessionWorkspace
-            ? "flex min-h-screen flex-col overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-9"
+          "app-shell-main min-w-0 flex-1 bg-[var(--color-bg)]",
+          isSessionChrome
+            ? "flex min-h-screen flex-col overflow-y-auto px-4 py-8 sm:px-8"
             : "p-8",
         )}
       >
         <div
           className={clsx(
-            isSessionWorkspace
-              ? "my-auto ml-16 w-full min-w-0 max-w-[46rem] shrink-0 self-start sm:ml-24 lg:ml-32"
+            isSessionChrome
+              ? "mx-auto w-full min-w-0 max-w-[42rem] px-2 py-2 sm:px-4"
               : "mx-auto w-full max-w-3xl",
           )}
         >

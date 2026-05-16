@@ -74,7 +74,7 @@ export function Card({
       className={clsx(
         "rounded-2xl p-6",
         tone === "default" && "border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm",
-        tone === "session" && "session-surface-card border-0 p-7 sm:px-9 sm:py-8",
+        tone === "session" && "session-panel session-card p-7 sm:p-8",
         className,
       )}
     >

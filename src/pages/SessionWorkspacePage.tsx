@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 
@@ -401,78 +401,53 @@ export function SessionWorkspacePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="session-composer-surface px-5 py-5 sm:px-7 sm:py-6">
-          <div className="flex items-center justify-between gap-3">
-            <Link
-              className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-accent)]"
-              to="/"
-            >
-              ← Home
-            </Link>
-            {showLiveStrip && (
-              <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-muted)]/75">
-                In progress
-              </span>
-            )}
-          </div>
+        <header className="pb-1 pt-1">
+          <Link className="session-link-back" to="/">
+            ← Back
+          </Link>
 
-          <h1 className="mt-4 text-2xl font-semibold tracking-[-0.035em] text-[var(--color-text)] sm:mt-5 sm:text-[2rem] sm:leading-[1.12]">
+          <h1 className="mt-5 text-[1.75rem] font-medium leading-tight tracking-[-0.02em] text-[var(--chat-text,#ececec)] sm:text-[2rem]">
             {workspaceTitle}
           </h1>
-          <p className="mt-2 max-w-[34rem] text-[14px] leading-[1.6] text-[var(--color-text-muted)]">
-            Live pipeline for your CV — every stage streams here until your Word deliverable is ready.
+          <p className="mt-2 max-w-lg text-[0.9375rem] leading-relaxed text-[var(--chat-muted,#b4b4b4)]">
+            {showLiveStrip
+              ? "Working through your CV in the background — updates appear here automatically."
+              : st === "completed"
+              ? "Your formatted document is ready below."
+              : "Session workspace"}
           </p>
 
-          <div className="mt-4 flex flex-wrap gap-1.5">
+          <div className="mt-4 flex flex-wrap gap-2">
             {[
-              { k: "Status", v: statusQuery.data?.status ?? "…" },
+              { k: "Status", v: (statusQuery.data?.status ?? "…").replace(/_/g, " ") },
               { k: "Format", v: statusQuery.data?.target_format ?? "…" },
               { k: "Round", v: String(statusQuery.data?.round ?? "…") },
             ].map((pill) => (
-              <span
-                key={pill.k}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.035] px-2.5 py-1 text-[10px] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]"
-              >
-                <span className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">
-                  {pill.k}
-                </span>
-                <span className="font-medium tabular-nums text-[var(--color-text)]">{pill.v}</span>
+              <span key={pill.k} className="session-meta-pill">
+                <span>{pill.k}</span>
+                <strong className="capitalize">{pill.v}</strong>
               </span>
             ))}
-            <span className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-white/[0.05] bg-white/[0.025] px-2.5 py-1 text-[10px] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
-              <span className="shrink-0 font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">
-                Session
-              </span>
-              <code className="min-w-0 truncate font-mono text-[9px] text-[var(--color-text-muted)]/95">
-                {sessionId}
-              </code>
-            </span>
           </div>
+        </header>
 
-          {showLiveStrip && (
-            <>
-              <div className="session-composer-divider my-5 sm:my-5" aria-hidden />
-              <AnimatePresence initial={false} mode="popLayout">
-                <motion.div
-                  key="live-strip"
-                  initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
-                  transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <SessionLivePipelineStrip
-                    embedded
-                    status={st}
-                    progressPct={progressForStatus(st)}
-                    fileLabel={fileLabel}
-                  />
-                </motion.div>
-              </AnimatePresence>
-            </>
-          )}
-        </div>
+        {showLiveStrip && (
+          <motion.div
+            className="session-composer-surface session-card mt-6 p-6 sm:p-7"
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <SessionLivePipelineStrip
+              embedded
+              status={st}
+              progressPct={progressForStatus(st)}
+              fileLabel={fileLabel}
+            />
+          </motion.div>
+        )}
 
-        <div className="mt-7 flex flex-col gap-7 sm:mt-8 sm:gap-8">
+        <motion.div className="mt-8 flex flex-col gap-6 sm:gap-7">
           <SessionPipelineTimeline
             manifest={manifestQuery.data}
             sessionStatus={st}
@@ -487,16 +462,16 @@ export function SessionWorkspacePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             >
-              <Card tone="session">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">
-                  Human gate
-                </p>
-                <h2 className="mt-1 text-lg font-semibold tracking-tight text-[var(--color-text)]">
-                  {statusQuery.data?.target_format === "world_bank"
-                    ? "Select Statement of Need"
-                    : "Select ToR role"}
-                </h2>
-                <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-muted)]">
+              <Card tone="session" className="session-card--gate">
+                <div className="session-card-header">
+                  <span className="session-card-eyebrow session-card-eyebrow--accent">Your input needed</span>
+                  <h2 className="session-card-title">
+                    {statusQuery.data?.target_format === "world_bank"
+                      ? "Select Statement of Need"
+                      : "Select ToR role"}
+                  </h2>
+                </div>
+                <p className="session-card-body !mt-0">
                   {statusQuery.data?.target_format === "world_bank" ? (
                     <>
                       Choose the SN from the ToR that matches this consultant. Later checkpoints resume
@@ -532,20 +507,18 @@ export function SessionWorkspacePage() {
               animate={{ opacity: 1, y: 0 }}
             >
               <Card tone="session">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
-                  Autopilot
-                </p>
-                <h2 className="mt-1 text-lg font-semibold tracking-tight text-[var(--color-text)]">
-                  Finishing touches
-                </h2>
-                <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-muted)]">
+                <div className="session-card-header">
+                  <span className="session-card-eyebrow">Running automatically</span>
+                  <h2 className="session-card-title">Finishing touches</h2>
+                </div>
+                <p className="session-card-body !mt-0">
                   Later checkpoints are running automatically. When rendering completes, you&apos;ll see{" "}
-                  <span className="font-medium text-[var(--color-text)]">Completed</span> with download and viewer
-                  actions unlocked.
+                  <span className="font-medium text-[var(--chat-text,#ececec)]">Completed</span> with download and
+                  viewer actions unlocked.
                 </p>
-                <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-[var(--color-text-muted)] ring-1 ring-white/[0.06]">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-accent)]" />
-                  <span className="font-medium capitalize text-[var(--color-accent)]">{st.replace(/_/g, " ")}</span>
+                <p className="session-meta-pill mt-4">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--chat-accent,#10a37f)]" />
+                  <strong className="capitalize">{st.replace(/_/g, " ")}</strong>
                 </p>
               </Card>
             </motion.div>
@@ -569,21 +542,19 @@ export function SessionWorkspacePage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  <Card tone="session">
-                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-                      <div className="min-w-0 max-w-xl">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300/90">
-                          Deliverable ready
-                        </p>
-                        <h2 className="mt-1.5 text-xl font-semibold tracking-[-0.02em] text-[var(--color-text)] sm:text-2xl">
+                  <Card tone="session" className="session-card--success">
+                    <div className="session-card-header flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                      <div className="min-w-0 max-w-xl flex-1">
+                        <span className="session-card-eyebrow session-card-eyebrow--accent">Deliverable</span>
+                        <h2 className="session-card-title session-card-title--lg">
                           Your formatted CV is complete
                         </h2>
-                        <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-muted)]">
+                        <p className="session-card-body">
                           Download a print-ready Word export or open the viewer to reference or refine fields inline.
                         </p>
                       </div>
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 ring-1 ring-emerald-400/30">
-                        <svg viewBox="0 0 24 24" className="h-6 w-6 text-emerald-300" aria-hidden>
+                      <div className="session-icon-badge sm:mt-1">
+                        <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden>
                           <path
                             fill="none"
                             stroke="currentColor"
@@ -599,12 +570,18 @@ export function SessionWorkspacePage() {
                     <SessionOutputInsights data={outputQuery.data} />
 
                     <div className="mt-9 flex flex-wrap gap-3 sm:mt-10">
-                      <Button type="button" disabled={downloading} onClick={() => void runDownload()}>
+                      <Button
+                        type="button"
+                        className="session-btn-primary"
+                        disabled={downloading}
+                        onClick={() => void runDownload()}
+                      >
                         {downloading ? "Opening…" : "Download Word"}
                       </Button>
                       <Button
                         type="button"
                         variant="secondary"
+                        className="session-btn-secondary"
                         disabled={viewerLoading || (showViewer && viewerMode === "reference")}
                         onClick={() => void openViewer("reference")}
                       >
@@ -617,6 +594,7 @@ export function SessionWorkspacePage() {
                       <Button
                         type="button"
                         variant="secondary"
+                        className="session-btn-secondary"
                         disabled={viewerLoading || (showViewer && viewerMode === "field_editor")}
                         onClick={() => void openViewer("field_editor")}
                       >
@@ -635,14 +613,14 @@ export function SessionWorkspacePage() {
                         animate={{ opacity: 1 }}
                       >
                         {pendingEdits.length > 0 && (
-                          <div className="rounded-xl bg-black/30 p-4 ring-1 ring-white/[0.06]">
-                            <p className="text-xs font-semibold text-[var(--color-text)]">
+                          <div className="session-subcard p-4">
+                            <p className="text-xs font-medium text-[var(--chat-text,#ececec)]">
                               Queued edits ({pendingEdits.length}/5)
                             </p>
                             <ul className="mt-2 space-y-1.5">
                               {pendingEdits.map((e, i) => (
-                                <li key={i} className="flex gap-2 text-xs text-[var(--color-text-muted)]">
-                                  <code className="shrink-0 text-[var(--color-accent)]">{e.field_path}</code>
+                                <li key={i} className="flex gap-2 text-xs text-[var(--chat-muted,#b4b4b4)]">
+                                  <code className="shrink-0 text-[var(--chat-accent,#10a37f)]">{e.field_path}</code>
                                   <span className="truncate opacity-80">
                                     {e.instruction || "(add instruction)"}
                                   </span>
@@ -666,7 +644,7 @@ export function SessionWorkspacePage() {
                   {!reduceMotion && (
                     <div className="session-shimmer pointer-events-none absolute inset-0 opacity-30" aria-hidden />
                   )}
-                  <p className="relative text-sm text-[var(--color-text-muted)]">Preparing insights and download…</p>
+                  <p className="relative text-sm text-[var(--chat-muted,#b4b4b4)]">Preparing insights and download…</p>
                 </Card>
               )}
             </>
@@ -686,7 +664,7 @@ export function SessionWorkspacePage() {
               </Card>
             </motion.div>
           )}
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   );

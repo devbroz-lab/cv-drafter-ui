@@ -23,12 +23,12 @@ function FlowDot({ mode }: { mode: RowMode }) {
     return (
       <motion.span
         layout
-        className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 ring-1 ring-emerald-400/30"
+        className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--chat-accent-soft)] ring-1 ring-[var(--chat-accent)]/40"
         initial={reduce ? false : { scale: 0.6 }}
         animate={{ scale: 1 }}
         transition={{ type: "spring", stiffness: 500, damping: 28 }}
       >
-        <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 text-emerald-300" aria-hidden>
+        <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 text-[var(--chat-accent)]" aria-hidden>
           <path
             fill="none"
             stroke="currentColor"
@@ -58,8 +58,8 @@ function FlowDot({ mode }: { mode: RowMode }) {
           aria-hidden
         />
       )}
-      <span className="relative flex h-6 w-6 items-center justify-center rounded-full border border-[var(--color-accent)]/35 bg-[var(--color-accent)]/12">
-        <span className="h-2.5 w-2.5 rounded-full border-2 border-[var(--color-accent)] border-t-transparent motion-reduce:animate-none animate-spin" />
+      <span className="relative flex h-6 w-6 items-center justify-center rounded-full border border-[var(--chat-border)] bg-[var(--chat-bg)]">
+        <span className="h-2.5 w-2.5 rounded-full border-2 border-[var(--chat-text)] border-t-transparent motion-reduce:animate-none animate-spin" />
       </span>
     </span>
   );
@@ -110,17 +110,17 @@ const PipelineFlowStep = forwardRef<
               {!reduce && mode === "active" && (
                 <div className="pipeline-step-shimmer pointer-events-none absolute inset-0 opacity-50" aria-hidden />
               )}
-              <p className="relative text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+              <p className="session-card-eyebrow relative">
                 {mode === "celebrate" ? "Complete" : mode === "blocked" ? "Needs you" : "In progress"}
               </p>
-              <h3 className="relative mt-1 text-[15px] font-semibold tracking-[-0.02em] text-[var(--color-text)] sm:text-base">
+              <h3 className="session-card-title relative mt-1 text-[0.9375rem] sm:text-base">
                 {label}
               </h3>
               <motion.p
                 initial={reduce ? false : { opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.08, duration: 0.35, ease: EASE }}
-                className="relative mt-2 text-[13px] leading-relaxed text-[var(--color-text-muted)]"
+                className="relative mt-2 text-sm leading-relaxed text-[var(--chat-muted,#b4b4b4)]"
               >
                 {mode === "celebrate"
                   ? "Stage finished — moving on"
@@ -130,12 +130,12 @@ const PipelineFlowStep = forwardRef<
               </motion.p>
               {mode === "active" && !reduce && (
                 <motion.div
-                  className="relative mt-4 h-0.5 overflow-hidden rounded-full bg-white/[0.06]"
+                  className="relative mt-4 h-0.5 overflow-hidden rounded-full bg-[var(--chat-surface-hover,#262626)]"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
                   <motion.div
-                    className="h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-[var(--color-accent)] to-transparent"
+                    className="h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-[var(--chat-text,#ececec)] to-transparent"
                     animate={{ x: ["-100%", "320%"] }}
                     transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
                   />
@@ -151,7 +151,7 @@ const PipelineFlowStep = forwardRef<
               transition={{ duration: 0.4, ease: EASE }}
               className="flex items-center px-3 py-2.5 sm:px-4"
             >
-              <span className="text-sm font-medium tracking-[-0.01em] text-[var(--color-text)]/90">{label}</span>
+              <span className="text-sm text-[var(--chat-muted,#b4b4b4)]">{label}</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -215,15 +215,12 @@ export function SessionPipelineTimeline({
       <motion.div
         initial={reduce ? false : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="session-surface-card rounded-3xl px-6 py-8 sm:px-8"
+        className="session-panel px-6 py-8"
       >
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
-          Pipeline
-        </p>
-        <div className="mt-4 flex items-center gap-3 text-sm text-[var(--color-text-muted)]">
-          <span className="inline-flex h-4 w-4 shrink-0 rounded-full border-2 border-[var(--color-accent)] border-t-transparent motion-reduce:animate-none animate-spin" />
+        <motion.div className="flex items-center gap-3 text-sm text-[var(--chat-muted,#b4b4b4)]">
+          <span className="inline-flex h-4 w-4 shrink-0 rounded-full border-2 border-[var(--chat-text)] border-t-transparent motion-reduce:animate-none animate-spin" />
           Warming up stages…
-        </div>
+        </motion.div>
       </motion.div>
     );
   }
@@ -233,9 +230,9 @@ export function SessionPipelineTimeline({
       <motion.div
         initial={reduce ? false : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-3xl border border-white/[0.05] bg-white/[0.025] px-7 py-8"
+        className="session-panel px-6 py-8"
       >
-        <p className="text-sm text-[var(--color-text-muted)]">
+        <p className="text-sm text-[var(--chat-muted,#b4b4b4)]">
           Stages will stream here as soon as the run starts.
         </p>
       </motion.div>
@@ -260,15 +257,13 @@ export function SessionPipelineTimeline({
       initial={reduce ? false : { opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE }}
-      className="session-surface-card rounded-3xl px-6 py-7 sm:px-8 sm:py-8"
+      className="session-panel session-card px-6 py-7 sm:px-8 sm:py-8"
     >
-      <motion.div layout className="flex items-end justify-between gap-4">
+      <motion.div layout className="session-card-header flex items-end justify-between gap-4">
         <motion.div layout>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
-            Pipeline
-          </p>
-          <h2 className="mt-1.5 text-xl font-semibold tracking-[-0.02em] text-[var(--color-text)] sm:text-[1.35rem]">
-            {allDone ? "All stages complete" : "Running your CV"}
+          <span className="session-card-eyebrow">Pipeline</span>
+          <h2 className="session-card-title mt-1">
+            {allDone ? "All stages complete" : "Your CV journey"}
           </h2>
         </motion.div>
         <motion.span
@@ -276,10 +271,10 @@ export function SessionPipelineTimeline({
           key={doneCount}
           initial={reduce ? false : { opacity: 0.6, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="shrink-0 rounded-full bg-white/[0.04] px-3 py-1 text-[11px] font-medium tabular-nums text-[var(--color-text-muted)] ring-1 ring-white/[0.07]"
+          className="session-meta-pill tabular-nums"
         >
           {doneCount}
-          <span className="text-[var(--color-text-muted)]/60"> / </span>
+          <span className="opacity-50"> / </span>
           {totalCount}
         </motion.span>
       </motion.div>
@@ -289,7 +284,7 @@ export function SessionPipelineTimeline({
           layout
           initial={reduce ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-4 text-[12px] text-[var(--color-accent)]"
+          className="mt-4 text-sm text-[var(--chat-accent)]"
         >
           Waiting on{" "}
           <span className="font-semibold">{manifest.checkpoint_pending.replace(/_/g, " ")}</span>
@@ -301,7 +296,7 @@ export function SessionPipelineTimeline({
           layout
           initial={reduce ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mt-3 text-[12px] leading-relaxed text-amber-100/85"
+          className="mt-3 text-sm leading-relaxed text-amber-200/80"
         >
           Review flagged an item — check the deliverable section when ready.
         </motion.p>
