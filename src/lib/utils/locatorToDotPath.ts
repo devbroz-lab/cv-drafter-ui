@@ -87,6 +87,7 @@ function gizTableToDotPath(
   tableIndex: number,
   rowIndex: number,
   cellIndex: number,
+  cvData?: CVDataLite,
 ): LocatorMappingResult | null {
   switch (tableIndex) {
     case 0: {
@@ -110,6 +111,31 @@ function gizTableToDotPath(
           ],
         };
         case 8: return { kind: "simple", dotPath: "personal_info.place_of_residence", confidence: "mapped", label: "Place of residence" };
+      }
+      return null;
+    }
+    case 3: {
+      // Skills / Membership — static table, no row expansion.
+      // Placed before the rowIndex guard because row 0 (membership_professional_bodies) must be reachable.
+      // cell 0 is the label, cell 1 is the editable value.
+      if (cellIndex !== 1) return null;
+      switch (rowIndex) {
+        case 0: return { kind: "simple", dotPath: "membership_professional_bodies", confidence: "mapped", label: "Membership in professional bodies" };
+        case 1: {
+          // other_skills is a string[] — render a composite so each element is individually editable.
+          const skills = cvData?.other_skills as string[] | undefined;
+          if (!skills || skills.length === 0) return null;
+          return {
+            kind: "composite", dotPath: "", confidence: "mapped",
+            label: "Skills",
+            options: skills.map((s, n) => ({
+              label: `Skill ${n + 1} — ${truncate(String(s), 40)}`,
+              dotPath: `other_skills[${n}]`,
+            })),
+          };
+        }
+        case 2: return { kind: "simple", dotPath: "present_position", confidence: "mapped", label: "Present position" };
+        case 3: return { kind: "simple", dotPath: "years_with_firm",  confidence: "mapped", label: "Years within the firm" };
       }
       return null;
     }
@@ -162,18 +188,6 @@ function gizTableToDotPath(
           label: `Language ${i + 1} — ${lf.label}`,
         };
       break;
-    }
-    case 3: {
-      // Skills / Membership — static table, no row expansion.
-      // cell 0 is the label, cell 1 is the editable value.
-      if (cellIndex !== 1) return null;
-      switch (rowIndex) {
-        case 0: return { kind: "simple", dotPath: "membership_professional_bodies", confidence: "mapped", label: "Membership in professional bodies" };
-        case 1: return null; // other_skills is an array — not a scalar, backend would reject it
-        case 2: return { kind: "simple", dotPath: "present_position", confidence: "mapped", label: "Present position" };
-        case 3: return { kind: "simple", dotPath: "years_with_firm",  confidence: "mapped", label: "Years within the firm" };
-      }
-      return null;
     }
     case 4: {
       // Countries of Experience
@@ -320,15 +334,19 @@ function wbTableToDotPath(
     }
     case 2: {
       // Employment Record — 3 cells (was incorrectly mapped as 4)
-      // cell 0: period
-      // cell 1: employer + position (composite — two paragraphs in one cell)
+      // cell 0: from_date + to_date composite (period is a computed string, not a stored field)
+      // cell 1: employer + positions_held composite (two paragraphs in one cell)
       // cell 2: country
       if (cellIndex === 0)
         return {
-          kind: "simple",
-          dotPath: `employment_record[${i}].period`,
+          kind: "composite",
+          dotPath: "",
           confidence: "mapped",
           label: `Employment ${i + 1} — period`,
+          options: [
+            { label: "Date From", dotPath: `employment_record[${i}].from_date` },
+            { label: "Date To",   dotPath: `employment_record[${i}].to_date`   },
+          ],
         };
       if (cellIndex === 1)
         return {
@@ -337,8 +355,8 @@ function wbTableToDotPath(
           confidence: "mapped",
           label: `Employment ${i + 1} — employer / position`,
           options: [
-            { label: "Employer", dotPath: `employment_record[${i}].employer` },
-            { label: "Position", dotPath: `employment_record[${i}].position` },
+            { label: "Employer", dotPath: `employment_record[${i}].employer`       },
+            { label: "Position", dotPath: `employment_record[${i}].positions_held` },
           ],
         };
       if (cellIndex === 2)
@@ -406,36 +424,69 @@ export type LocatorToDotPathOptions = {
   docBlocks?: KqDocBlock[];
   /** Scalar body field — often split across multiple Word paragraphs. */
   otherRelevantInfo?: string;
+  /** Full CV data — used for composite cell resolution (other_skills, KQ source). */
+  cvData?: CVDataLite;
 };
 
 function normalizeWhitespace(s: string): string {
   return s.trim().replace(/\s+/g, " ");
 }
 
+function truncate(s: string, maxLen: number): string {
+  return s.length > maxLen ? s.slice(0, maxLen) + "…" : s;
+}
+
 function stripBulletPrefix(s: string): string {
   return s.replace(/^[\s•·▪▫\u2022\u2023\-–—*]+\s*/u, "").trim();
 }
 
-/** Builds the same bullet list the renderer / field editor use for paths like key_qualifications[i]. */
+/** Builds the same bullet list the renderer / field editor use for paths like key_qualifications[i].
+ *  Priority: generated_fields entries (field_key === "key_qualifications") first,
+ *  falling back to top-level key_qualifications. Mirrors _build_context in templates/giz.py. */
 export function effectiveKeyQualifications(cv: CVDataLite | undefined): string[] {
   if (!cv) return [];
-  const top = cv.key_qualifications;
-  if (Array.isArray(top) && top.length > 0) {
-    const coerced = top.map((x) => String(x).trim()).filter(Boolean);
-    if (coerced.length > 0) return coerced;
-  }
   const gf = cv.generated_fields;
   if (Array.isArray(gf)) {
     const fromGf = gf
       .filter(
         (f): f is GeneratedField =>
-          f.field_key === "key_qualifications" && typeof f.content === "string",
+          f.field_key === "key_qualifications" && typeof f.content === "string" && f.content.trim() !== "",
       )
-      .map((f) => f.content.trim())
-      .filter(Boolean);
+      .map((f) => f.content.trim());
     if (fromGf.length > 0) return fromGf;
   }
+  const top = cv.key_qualifications;
+  if (Array.isArray(top) && top.length > 0) {
+    const coerced = top.map((x) => String(x).trim()).filter(Boolean);
+    if (coerced.length > 0) return coerced;
+  }
   return [];
+}
+
+/**
+ * Resolve the dot-path for a key_qualifications bullet at bulletIndex.
+ *
+ * When generated_fields is the active source (non-empty KQ entries exist there),
+ * returns `generated_fields[j].content` for the j-th non-empty KQ entry.
+ * Returns null when generated_fields isn't the active source — caller falls back
+ * to `key_qualifications[bulletIndex]`.
+ *
+ * Mirrors resolveTasksAssignedPath in pattern.
+ */
+export function resolveKeyQualificationsPath(
+  generatedFields: GeneratedField[] | undefined,
+  bulletIndex: number,
+): string | null {
+  if (!generatedFields) return null;
+  const kqEntries = generatedFields.filter(
+    (f): f is GeneratedField =>
+      f.field_key === "key_qualifications" && typeof f.content === "string" && f.content.trim() !== "",
+  );
+  if (kqEntries.length === 0) return null;
+  if (bulletIndex >= kqEntries.length) return null;
+  const j = generatedFields.indexOf(kqEntries[bulletIndex]);
+  if (j === -1) return null;
+  return `generated_fields[${j}].content`;
 }
 
 const KQ_TEXT_MATCH_MIN_SCORE = 40;
@@ -627,7 +678,7 @@ export function locatorToDotPath(
     const { table_index, row_index, cell_index } = locator;
     const mapped =
       targetFormat === "giz"
-        ? gizTableToDotPath(table_index, row_index, cell_index)
+        ? gizTableToDotPath(table_index, row_index, cell_index, options?.cvData)
         : wbTableToDotPath(table_index, row_index, cell_index);
 
     if (mapped) return mapped;
@@ -655,9 +706,12 @@ export function locatorToDotPath(
     );
   }
   if (kqIdx !== null) {
+    const kqPath =
+      resolveKeyQualificationsPath(options?.cvData?.generated_fields as GeneratedField[] | undefined, kqIdx) ??
+      `key_qualifications[${kqIdx}]`;
     return {
       kind: "simple",
-      dotPath: `key_qualifications[${kqIdx}]`,
+      dotPath: kqPath,
       confidence: "mapped",
       label: `Key qualification ${kqIdx + 1}`,
     };

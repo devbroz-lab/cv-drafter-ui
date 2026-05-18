@@ -506,6 +506,7 @@ export function DocxViewer(props: DocxViewerProps) {
     const opts: LocatorToDotPathOptions = {};
     if (kq.length > 0) opts.keyQualifications = kq;
     if (ori) opts.otherRelevantInfo = ori;
+    if (cvData) opts.cvData = cvData;
     if (blocks.length > 0) {
       opts.docBlocks = blocks.map((b) =>
         b.kind === "paragraph"
