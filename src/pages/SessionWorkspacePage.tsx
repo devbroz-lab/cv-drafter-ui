@@ -313,6 +313,22 @@ export function SessionWorkspacePage() {
   // so we can show the skipped-edits decision UI.
   const [lastEditResult, setLastEditResult] = useState<FieldEditResponse | null>(null);
 
+  const [cp1Collapsed, setCp1Collapsed] = useState(false);
+  const [cp1SelectionLabel, setCp1SelectionLabel] = useState<string | null>(null);
+  const cp1WorldBank = statusQuery.data?.target_format === "world_bank";
+
+  useEffect(() => {
+    setCp1Collapsed(false);
+    setCp1SelectionLabel(null);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (st !== "checkpoint_1_pending") {
+      setCp1Collapsed(false);
+      setCp1SelectionLabel(null);
+    }
+  }, [st]);
+
   const fieldEditMut = useMutation({
     mutationFn: (edits: FieldEditItem[]) => submitFieldEdits(accessToken!, sessionId, edits),
     onSuccess: (data: FieldEditResponse) => {
@@ -462,32 +478,68 @@ export function SessionWorkspacePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             >
-              <Card tone="session" className="session-card--gate">
-                <div className="session-card-header">
-                  <span className="session-card-eyebrow session-card-eyebrow--accent">Your input needed</span>
-                  <h2 className="session-card-title">
-                    {statusQuery.data?.target_format === "world_bank"
-                      ? "Select Statement of Need"
-                      : "Select ToR role"}
-                  </h2>
-                </div>
-                <p className="session-card-body !mt-0">
-                  {statusQuery.data?.target_format === "world_bank" ? (
-                    <>
-                      Choose the SN from the ToR that matches this consultant. Later checkpoints resume
-                      automatically once you continue.
-                    </>
-                  ) : (
-                    <>
-                      Choose the expert pool that best reflects this role. The remaining workflow continues on its
-                      own after approval.
-                    </>
-                  )}
-                </p>
-                <div className="mt-6">
+              <Card
+                tone="session"
+                className={cp1Collapsed ? "session-card--gate !p-5 sm:!p-6" : "session-card--gate"}
+              >
+                {cp1Collapsed ? (
+                  <motion.div
+                    className="flex items-start justify-between gap-4"
+                    layout
+                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <div className="min-w-0">
+                      <span className="session-card-eyebrow session-card-eyebrow--accent">
+                        {cp1WorldBank ? "SN approved" : "ToR role approved"}
+                      </span>
+                      <h2 className="session-card-title mt-1 truncate text-base">
+                        {cp1SelectionLabel}
+                      </h2>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                      <span className="relative inline-flex h-5 w-5 items-center justify-center">
+                        <span className="absolute inline-flex h-5 w-5 animate-ping rounded-full bg-emerald-500/25" />
+                        <span className="inline-flex h-2.5 w-2.5 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
+                      </span>
+                      <span className="text-sm text-[var(--chat-muted,#b4b4b4)]">Resuming…</span>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <>
+                    <div className="session-card-header">
+                      <span className="session-card-eyebrow session-card-eyebrow--accent">Your input needed</span>
+                      <h2 className="session-card-title">
+                        {cp1WorldBank ? "Select Statement of Need" : "Select ToR role"}
+                      </h2>
+                    </div>
+                    <p className="session-card-body !mt-0">
+                      {cp1WorldBank ? (
+                        <>
+                          Choose the SN from the ToR that matches this consultant. Later checkpoints resume
+                          automatically once you continue.
+                        </>
+                      ) : (
+                        <>
+                          Choose the expert pool that best reflects this role. The remaining workflow continues on
+                          its own after approval.
+                        </>
+                      )}
+                    </p>
+                  </>
+                )}
+                <div className={cp1Collapsed ? "mt-3" : "mt-6"}>
                   <TorPoolPicker
                     sessionId={sessionId}
                     targetFormat={statusQuery.data?.target_format ?? "giz"}
+                    compact={cp1Collapsed}
+                    onApproveStart={(label) => {
+                      setCp1SelectionLabel(label);
+                      setCp1Collapsed(true);
+                    }}
+                    onApproveFailed={() => {
+                      setCp1Collapsed(false);
+                      setCp1SelectionLabel(null);
+                    }}
                     onSuccess={() => {
                       void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
                       void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });

@@ -31,6 +31,12 @@ interface TorPoolPickerProps {
   sessionId: string;
   /** GIZ uses “expert pool” copy; World Bank uses Statement of Need (SN) terminology. */
   targetFormat?: TargetFormat;
+  /** Parent collapses the ToR card when approval starts. */
+  onApproveStart?: (selectionLabel: string) => void;
+  /** Parent re-expands the card if approval fails. */
+  onApproveFailed?: () => void;
+  /** Compact loading line (card header shows selection + spinner). */
+  compact?: boolean;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }
@@ -100,9 +106,23 @@ function PoolCard({
   );
 }
 
+function poolLabel(
+  pool: Record<string, unknown>,
+  index: number,
+  wb: boolean,
+): string {
+  return (
+    (pool.position_title as string | undefined) ||
+    (wb ? `Statement of Need ${index + 1}` : `Expert Pool ${index + 1}`)
+  );
+}
+
 export function TorPoolPicker({
   sessionId,
   targetFormat = "giz",
+  onApproveStart,
+  onApproveFailed,
+  compact = false,
   onSuccess,
   onError,
 }: TorPoolPickerProps) {
@@ -138,12 +158,14 @@ export function TorPoolPicker({
   const handleApprove = async () => {
     if (resolvedIndex === null) return;
     setInlineError(null);
+    onApproveStart?.(poolLabel(pools[resolvedIndex], resolvedIndex, wb));
     setSubmitting(true);
     try {
       await selectTorPool(accessToken!, sessionId, resolvedIndex);
     } catch (e) {
       setInlineError(formatApiError(e));
       setSubmitting(false);
+      onApproveFailed?.();
       return;
     }
     try {
@@ -158,6 +180,7 @@ export function TorPoolPicker({
       setInlineError(msg.includes("pool") ? msg : "Checkpoint approval failed — " + msg);
       onError(msg);
       setSubmitting(false);
+      onApproveFailed?.();
     }
   };
 
@@ -178,10 +201,19 @@ export function TorPoolPicker({
     );
   }
 
+  if (submitting && compact) {
+    return (
+      <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-muted)]">
+        {LOADING_MESSAGES[loadingMsgIdx]}
+      </p>
+    );
+  }
+
   return (
     <div className="mt-6 space-y-4">
       {/* Single pool — minimal UI */}
-      {pools.length === 1 ? (
+      {!submitting &&
+        (pools.length === 1 ? (
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-xs text-[var(--color-text-muted)]">
           <span className="font-medium text-[var(--color-text)]">
             {(pools[0].position_title as string | undefined) ||
@@ -223,7 +255,7 @@ export function TorPoolPicker({
             />
           ))}
         </div>
-      )}
+        ))}
 
       {inlineError && (
         <p className="text-xs text-red-300">{inlineError}</p>

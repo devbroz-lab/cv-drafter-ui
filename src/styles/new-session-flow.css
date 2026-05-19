@@ -130,7 +130,6 @@
   .ns-step__desc {
     max-width: 18rem;
     flex-shrink: 0;
-    text-align: right;
   }
 }
 
@@ -473,6 +472,37 @@
   outline: none;
   border-color: rgba(16, 163, 127, 0.45);
   box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.12);
+}
+
+/* Override browser autofill (Chrome paints a light background by default). */
+.ns-input:-webkit-autofill,
+.ns-input:-webkit-autofill:hover,
+.ns-input:-webkit-autofill:active,
+.ns-textarea:-webkit-autofill,
+.ns-textarea:-webkit-autofill:hover,
+.ns-textarea:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--ns-elevated) inset;
+  -webkit-text-fill-color: var(--ns-text);
+  caret-color: var(--ns-text);
+  transition: background-color 99999s ease-out 0s;
+}
+
+.ns-input:-webkit-autofill:focus,
+.ns-textarea:-webkit-autofill:focus {
+  -webkit-box-shadow:
+    0 0 0 1000px var(--ns-elevated) inset,
+    0 0 0 3px rgba(16, 163, 127, 0.12);
+  border-color: rgba(16, 163, 127, 0.45);
+  -webkit-text-fill-color: var(--ns-text);
+  caret-color: var(--ns-text);
+  transition: background-color 99999s ease-out 0s;
+}
+
+.ns-input:autofill,
+.ns-textarea:autofill {
+  box-shadow: 0 0 0 1000px var(--ns-elevated) inset;
+  -webkit-text-fill-color: var(--ns-text);
+  caret-color: var(--ns-text);
 }
 
 .ns-grid-2 {

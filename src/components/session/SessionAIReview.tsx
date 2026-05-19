@@ -237,32 +237,6 @@ export function SessionOutputInsights({ data }: { data: OutputResponse }) {
     <div className="mt-8 space-y-6">
       <GenerationWarnings warnings={data.generation_warnings ?? []} />
       <ReviewInsights data={data} />
-
-      {data.compression && (
-        <details className="session-subcard group overflow-hidden">
-          <summary className="cursor-pointer list-none px-4 py-3.5 text-sm font-medium text-[var(--chat-text,#ececec)] transition-colors hover:bg-[var(--chat-surface-hover,#262626)] [&::-webkit-details-marker]:hidden">
-            <span className="inline-flex w-full items-center justify-between gap-2">
-              Compression trace
-              <span className="text-[var(--chat-muted,#b4b4b4)] group-open:rotate-0">▾</span>
-            </span>
-          </summary>
-          <pre className="max-h-[260px] overflow-auto border-t border-white/[0.06] px-4 py-3 text-xs leading-relaxed text-[var(--chat-muted,#b4b4b4)] editor-scrollbar">
-            {JSON.stringify(data.compression, null, 2)}
-          </pre>
-        </details>
-      )}
-
-      <details className="session-subcard group overflow-hidden">
-        <summary className="cursor-pointer list-none px-4 py-3.5 text-sm font-medium text-[var(--chat-text,#ececec)] transition-colors hover:bg-[var(--chat-surface-hover,#262626)] [&::-webkit-details-marker]:hidden">
-          <span className="inline-flex w-full items-center justify-between gap-2">
-            Structured CV data (JSON)
-            <span className="text-[var(--chat-muted,#b4b4b4)]">▾</span>
-          </span>
-        </summary>
-        <pre className="max-h-[min(480px,50vh)] overflow-auto border-t border-white/[0.06] px-4 py-3 text-xs leading-relaxed text-[var(--chat-muted,#b4b4b4)] editor-scrollbar">
-          {JSON.stringify(data.cv_data, null, 2)}
-        </pre>
-      </details>
     </div>
   );
 }
