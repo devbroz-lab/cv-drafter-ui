@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { GoogleLogin } from "@react-oauth/google";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { motion, useReducedMotion } from "framer-motion";
@@ -7,6 +6,8 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { formatApiError } from "../lib/api";
+import { MicrosoftIcon } from "../components/auth/AuthBrandIcons";
+import { GoogleSsoButton } from "../components/auth/GoogleSsoButton";
 import { Card } from "../components/ui";
 
 const PROMO_FEATURES = [
@@ -28,8 +29,10 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [msBusy, setMsBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const reduceMotion = useReducedMotion();
 
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const microsoftClientId = import.meta.env.VITE_MICROSOFT_CLIENT_ID;
 
   if (!loading && accessToken) return <Navigate to="/" replace />;
@@ -178,34 +181,30 @@ export function LoginPage() {
                 <button
                   type="button"
                   className="auth-page__sso-btn"
-                  disabled={msBusy}
+                  disabled={msBusy || googleBusy}
                   onClick={() => void onMicrosoftSignIn()}
                 >
+                  <MicrosoftIcon />
                   {msBusy ? "Signing in with Microsoft…" : "Continue with Microsoft"}
                 </button>
-                <div className="auth-page__google">
-                  <GoogleLogin
-                    onSuccess={async (credentialResponse) => {
-                      if (!credentialResponse.credential) {
-                        toast("Google login did not return a credential.", "error");
-                        return;
-                      }
-                      try {
-                        await signInWithGoogle(credentialResponse.credential);
-                        navigate("/", { replace: true });
-                        toast("Signed in with Google.");
-                      } catch (err: unknown) {
-                        toast(formatApiError(err), "error");
-                      }
-                    }}
-                    onError={() => toast("Google sign-in failed.", "error")}
-                    theme="filled_black"
-                    size="large"
-                    text="signin_with"
-                    shape="rectangular"
-                    width="100%"
-                  />
-                </div>
+                <GoogleSsoButton
+                  clientId={googleClientId}
+                  disabled={msBusy}
+                  busy={googleBusy}
+                  onError={() => toast("Google sign-in failed.", "error")}
+                  onCredential={async (credential) => {
+                    setGoogleBusy(true);
+                    try {
+                      await signInWithGoogle(credential);
+                      navigate("/", { replace: true });
+                      toast("Signed in with Google.");
+                    } catch (err: unknown) {
+                      toast(formatApiError(err), "error");
+                    } finally {
+                      setGoogleBusy(false);
+                    }
+                  }}
+                />
               </div>
 
               <p className="auth-page__footer">

@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import clsx from "clsx";
 
+import { livePipelineStageLabel } from "../../lib/sessionStatusLabels";
 import type { SessionStatus } from "../../lib/types";
 
 export function SessionLivePipelineStrip({
@@ -15,7 +16,7 @@ export function SessionLivePipelineStrip({
   embedded?: boolean;
 }) {
   const reduce = useReducedMotion();
-  const stage = (status ?? "starting").replace(/_/g, " ");
+  const stage = livePipelineStageLabel(status);
   const shortLabel = fileLabel.length > 48 ? `${fileLabel.slice(0, 45)}…` : fileLabel;
 
   return (
@@ -38,7 +39,7 @@ export function SessionLivePipelineStrip({
             Working on <span className="font-medium text-[var(--chat-text,#ececec)]">“{shortLabel}”</span>
           </p>
           <p className="mt-2 text-[0.8125rem] leading-relaxed text-[var(--chat-muted,#b4b4b4)]/90">
-            Stage: <span className="capitalize text-[var(--chat-text,#ececec)]">{stage}</span>
+            <span className="text-[var(--chat-text,#ececec)]">{stage}</span>
           </p>
         </motion.div>
         <motion.div className="flex shrink-0 items-baseline gap-1 tabular-nums">

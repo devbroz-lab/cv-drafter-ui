@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import clsx from "clsx";
 
 import { useAuth } from "../contexts/AuthContext";
+import { SidebarSessionList } from "./SidebarSessionList";
 
 const SIDEBAR_STORAGE_KEY = "cv-drafter-sidebar-collapsed";
 
@@ -70,6 +71,7 @@ export function AppShell() {
   const isHome = location.pathname === "/";
   const isNewSession = location.pathname === "/sessions/new";
   const isSessionWorkspace = /^\/sessions\/[^/]+$/.test(location.pathname);
+  const showSidebarSessions = isNewSession || isSessionWorkspace;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_STORAGE_KEY) === "1";
@@ -133,7 +135,7 @@ export function AppShell() {
             <NavIcon name="home" />
             <span className="app-shell-nav-label">Home</span>
           </NavLink>
-          <NavLink to="/sessions/new" className={navClass} title="New reformat">
+          <NavLink to="/sessions/new" end className={navClass} title="New reformat">
             <NavIcon name="new" />
             <span className="app-shell-nav-label">New reformat</span>
           </NavLink>
@@ -142,6 +144,12 @@ export function AppShell() {
             <span className="app-shell-nav-label">Settings & health</span>
           </NavLink>
         </nav>
+
+        {showSidebarSessions ? (
+          <SidebarSessionList collapsed={sidebarCollapsed} />
+        ) : (
+          <div className="app-shell-sidebar-spacer" aria-hidden />
+        )}
 
         <div className="app-shell-sidebar-foot">
           <button

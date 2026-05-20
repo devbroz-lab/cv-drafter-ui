@@ -20,6 +20,7 @@ import {
   submitFieldEdits,
 } from "../lib/api";
 import { recentSessionLabel, upsertRecentSession } from "../lib/recentSessions";
+import { livePipelineStageLabel, sessionStatusLabel } from "../lib/sessionStatusLabels";
 import type {
   FieldEditItem,
   FieldEditResponse,
@@ -435,7 +436,7 @@ export function SessionWorkspacePage() {
 
           <div className="mt-4 flex flex-wrap gap-2">
             {[
-              { k: "Status", v: (statusQuery.data?.status ?? "…").replace(/_/g, " ") },
+              { k: "Status", v: sessionStatusLabel(statusQuery.data?.status) },
               { k: "Format", v: statusQuery.data?.target_format ?? "…" },
               { k: "Round", v: String(statusQuery.data?.round ?? "…") },
             ].map((pill) => (
@@ -564,13 +565,12 @@ export function SessionWorkspacePage() {
                   <h2 className="session-card-title">Finishing touches</h2>
                 </div>
                 <p className="session-card-body !mt-0">
-                  Later checkpoints are running automatically. When rendering completes, you&apos;ll see{" "}
-                  <span className="font-medium text-[var(--chat-text,#ececec)]">Completed</span> with download and
-                  viewer actions unlocked.
+                  We&apos;re finishing the remaining steps for you. When your document is ready, you&apos;ll see download
+                  and viewer actions below.
                 </p>
                 <p className="session-meta-pill mt-4">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--chat-accent,#10a37f)]" />
-                  <strong className="capitalize">{st.replace(/_/g, " ")}</strong>
+                  <strong>{livePipelineStageLabel(st)}</strong>
                 </p>
               </Card>
             </motion.div>

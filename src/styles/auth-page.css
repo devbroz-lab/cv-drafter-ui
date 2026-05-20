@@ -334,14 +334,45 @@
   opacity: 0.5;
 }
 
-.auth-page__google {
-  display: flex;
-  justify-content: center;
-  width: 100%;
+/* Google SSO — custom face + invisible native button for clicks */
+.auth-page__google-host {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
 }
 
-.auth-page__google > div {
+.auth-page__google-host--disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.auth-page__sso-btn-face {
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.auth-page__google-native {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: 0.01;
+  overflow: hidden;
+}
+
+.auth-page__google-native > div {
   width: 100% !important;
+  height: 100% !important;
+}
+
+.auth-page__google-native iframe {
+  width: 100% !important;
+  height: 2.375rem !important;
+  margin: 0 !important;
 }
 
 .auth-page__footer {

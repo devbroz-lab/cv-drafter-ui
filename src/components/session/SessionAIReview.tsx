@@ -53,9 +53,21 @@ function GenerationWarnings({ warnings }: { warnings: string[] }) {
   );
 }
 
+/** Short one-line preview for the collapsed card title. */
+function findingSummary(issueText: string | undefined, maxLen = 72): string {
+  const text = (issueText ?? "").trim();
+  if (!text) return "Review item";
+  if (text.length <= maxLen) return text;
+  const slice = text.slice(0, maxLen);
+  const lastSpace = slice.lastIndexOf(" ");
+  const cut = lastSpace > 24 ? slice.slice(0, lastSpace) : slice;
+  return `${cut.trim()}…`;
+}
+
 function HighInsightCard({ issue, index }: { issue: HighSeverityIssue; index: number }) {
   const reduce = useReducedMotion();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+  const summary = findingSummary(issue.issue);
 
   return (
     <motion.article
@@ -70,10 +82,12 @@ function HighInsightCard({ issue, index }: { issue: HighSeverityIssue; index: nu
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-start justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[var(--chat-surface-hover,#262626)]"
       >
-        <div className="min-w-0 space-y-1">
+        <div className="min-w-0 space-y-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-red-200/85">Attention</p>
+          <p className="line-clamp-1 text-sm font-medium leading-snug text-[var(--chat-text,#ececec)]">
+            {summary}
+          </p>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-[var(--chat-text,#ececec)]">Finding {index + 1}</span>
             {(issue.field ?? issue.path) && (
               <code className="rounded-md bg-black/30 px-2 py-0.5 font-mono text-[10px] text-[var(--chat-accent,#10a37f)]">
                 {issue.field ?? issue.path}
@@ -146,7 +160,7 @@ function LowSeverityCollapsible({ lows }: { lows: LowSeverityIssue[] }) {
             exit={reduce ? undefined : { height: 0, opacity: 0 }}
             className="border-t border-[var(--chat-border-subtle)]"
           >
-            <ul className="max-h-[min(420px,55vh)] space-y-3 overflow-y-auto px-4 py-4 text-sm text-[var(--chat-muted,#b4b4b4)] editor-scrollbar">
+            <ul className="session-scrollbar max-h-[min(420px,55vh)] space-y-3 overflow-y-auto px-4 py-4 text-sm text-[var(--chat-muted,#b4b4b4)]">
               {lows.map((l, i) => (
                 <li key={i} className="session-subcard p-3">
                   <div className="flex flex-wrap items-center gap-2">

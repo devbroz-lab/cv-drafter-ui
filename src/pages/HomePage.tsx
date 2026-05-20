@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
 import { listSessions } from "../lib/api";
 import { upsertRecentSession } from "../lib/recentSessions";
+import { sessionStatusLabel } from "../lib/sessionStatusLabels";
 import type { SessionSummary } from "../lib/types";
 import { Card } from "../components/ui";
 
@@ -41,10 +42,6 @@ function CtaIcon() {
       />
     </svg>
   );
-}
-
-function formatStatus(status: string): string {
-  return status.replace(/_/g, " ");
 }
 
 function sessionTimestamp(s: SessionSummary): string {
@@ -179,7 +176,7 @@ export function HomePage() {
                           </span>
                           <span className="home-page__format-pill">
                             <span>Status</span>
-                            <strong className="capitalize">{formatStatus(s.status)}</strong>
+                            <strong>{sessionStatusLabel(s.status)}</strong>
                           </span>
                           <span className="home-page__meta-dot" aria-hidden />
                           <time className="home-page__session-date" dateTime={updatedAt}>

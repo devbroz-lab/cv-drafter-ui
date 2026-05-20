@@ -2,6 +2,10 @@ import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-m
 import clsx from "clsx";
 import { forwardRef, useEffect, useRef, useState } from "react";
 
+import {
+  checkpointPendingLabel,
+  pipelineBlockedHint,
+} from "../../lib/sessionStatusLabels";
 import type { ManifestResponse, SessionStatus } from "../../lib/types";
 import {
   currentUserStageIndex,
@@ -67,8 +71,8 @@ function FlowDot({ mode }: { mode: RowMode }) {
 
 const PipelineFlowStep = forwardRef<
   HTMLLIElement,
-  { stage: UserPipelineStageView; mode: RowMode; index: number }
->(function PipelineFlowStep({ stage, mode, index }, ref) {
+  { stage: UserPipelineStageView; mode: RowMode; index: number; sessionStatus?: SessionStatus }
+>(function PipelineFlowStep({ stage, mode, index, sessionStatus }, ref) {
   const reduce = useReducedMotion();
   const { label, activePhrase } = stage;
   const expanded = mode === "active" || mode === "celebrate" || mode === "blocked";
@@ -125,7 +129,7 @@ const PipelineFlowStep = forwardRef<
                 {mode === "celebrate"
                   ? "Stage finished — moving on"
                   : mode === "blocked"
-                  ? "Resolve the checkpoint above to continue"
+                  ? pipelineBlockedHint(sessionStatus)
                   : activePhrase}
               </motion.p>
               {mode === "active" && !reduce && (
@@ -250,6 +254,7 @@ export function SessionPipelineTimeline({
 
   const doneCount = userStages.filter((s) => s.visual === "completed").length;
   const totalCount = userStages.length;
+  const pendingHint = !allDone ? checkpointPendingLabel(manifest?.checkpoint_pending) : null;
 
   return (
     <motion.section
@@ -279,15 +284,14 @@ export function SessionPipelineTimeline({
         </motion.span>
       </motion.div>
 
-      {manifest?.checkpoint_pending && !allDone && (
+      {pendingHint && (
         <motion.p
           layout
           initial={reduce ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-4 text-sm text-[var(--chat-accent)]"
+          className="mt-4 text-sm leading-relaxed text-[var(--chat-accent)]"
         >
-          Waiting on{" "}
-          <span className="font-semibold">{manifest.checkpoint_pending.replace(/_/g, " ")}</span>
+          {pendingHint}
         </motion.p>
       )}
 
@@ -310,7 +314,13 @@ export function SessionPipelineTimeline({
           />
           <AnimatePresence initial={false} mode="popLayout">
             {visible.map(({ stage, mode, i }) => (
-              <PipelineFlowStep key={stage.id} stage={stage} mode={mode} index={i} />
+              <PipelineFlowStep
+                key={stage.id}
+                stage={stage}
+                mode={mode}
+                index={i}
+                sessionStatus={sessionStatus}
+              />
             ))}
           </AnimatePresence>
         </ul>
