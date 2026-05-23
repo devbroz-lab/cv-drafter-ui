@@ -8,6 +8,7 @@ import App from "./App";
 import { queryClient } from "./lib/queryClient";
 
 import "./styles/globals.css";
+import "./styles/pipeline-status.css";
 import "./styles/auth-page.css";
 import "./styles/home-page.css";
 import "./styles/new-session-flow.css";

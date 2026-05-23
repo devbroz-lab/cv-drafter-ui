@@ -317,7 +317,7 @@ function ReferenceItem({
         </pre>
       )}
       <textarea
-        className="mt-3 w-full resize-none rounded-xl border border-white/[0.08] bg-[var(--color-surface)]/80 px-3 py-2.5 text-[12px] text-[var(--color-text)] outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_0_3px_var(--color-accent-soft)]"
+        className="editor-instruction-input mt-3 px-3 py-2.5"
         rows={2}
         placeholder="Add a note…"
         value={reference.comment}
@@ -396,7 +396,7 @@ function FieldEditEntryItem({
           Instruction
         </label>
         <textarea
-          className="w-full resize-none rounded-xl border border-white/[0.08] bg-[var(--color-surface)]/80 px-3 py-2.5 text-[12px] text-[var(--color-text)] outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_0_3px_var(--color-accent-soft)]"
+          className="editor-instruction-input px-3 py-2.5"
           rows={3}
           placeholder="e.g. Shorten and use active voice…"
           value={entry.instruction}

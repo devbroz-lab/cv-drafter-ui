@@ -311,7 +311,7 @@ export function FieldSelectorTooltip({
               <textarea
                 ref={instructionRef}
                 rows={3}
-                className="w-full resize-none rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-[12px] text-[var(--color-text)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]/55 focus:shadow-[0_0_0_2px_var(--color-accent-soft)]"
+                className="editor-instruction-input px-3 py-2"
                 placeholder="e.g. Make this more concise and remove passive voice"
                 value={instruction}
                 onChange={(e) => setInstruction(e.target.value)}

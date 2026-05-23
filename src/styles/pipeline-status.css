@@ -1,0 +1,324 @@
+/* Pipeline status card — compact track + collapsible step list */
+
+.pipeline-status-card {
+  border-radius: var(--chat-radius, 1.25rem);
+  padding: 1.25rem 1.375rem;
+}
+
+.pipeline-status-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 0.875rem;
+}
+
+.pipeline-status-card__label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6b6b65;
+}
+
+.pipeline-status-card__count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #5a5a55;
+  background: #252523;
+  border: 1px solid #2e2e2b;
+  border-radius: 1.25rem;
+  padding: 2px 10px;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pipeline-status-card__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #e8e8e3;
+  margin-bottom: 0.875rem;
+  line-height: 1.3;
+}
+
+.pipeline-status-card__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: rgba(234, 179, 8, 0.07);
+  border: 1px solid rgba(234, 179, 8, 0.18);
+  border-radius: 0.5rem;
+  padding: 0.5625rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pipeline-status-card__warning-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ca8a04;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.pipeline-status-card__warning-text {
+  font-size: 0.78125rem;
+  color: #a16207;
+  line-height: 1.5;
+}
+
+.pipeline-status-card__hint {
+  font-size: 0.78125rem;
+  line-height: 1.5;
+  color: var(--chat-accent, #10a37f);
+  margin-bottom: 1rem;
+}
+
+/* ── Progress track ─────────────────────────────────────────────────────── */
+.pipeline-status-track {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
+.pipeline-status-track__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.pipeline-status-track__dot--done {
+  background: #2d9e75;
+}
+
+.pipeline-status-track__dot--running {
+  background: #3b8fe8;
+}
+
+.pipeline-status-track__dot--pending {
+  background: #2e2e2b;
+  border: 1.5px solid #3a3a37;
+}
+
+.pipeline-status-track__line {
+  height: 1.5px;
+  flex: 1;
+  margin-top: -1px;
+}
+
+.pipeline-status-track__line--done {
+  background: #2d9e75;
+}
+
+.pipeline-status-track__line--pending {
+  background: #2e2e2b;
+}
+
+.pipeline-status-track__line--half {
+  background: linear-gradient(to right, #2d9e75 50%, #2e2e2b 50%);
+}
+
+/* ── Toggle row ───────────────────────────────────────────────────────── */
+.pipeline-status-card__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 0;
+}
+
+.pipeline-status-card__summary {
+  font-size: 0.75rem;
+  color: #4a4a47;
+}
+
+.pipeline-status-card__toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: #4a4a47;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  transition: color 0.15s ease;
+}
+
+.pipeline-status-card__toggle:hover .pipeline-status-card__toggle-btn {
+  color: #888880;
+}
+
+.pipeline-status-card__chevron {
+  display: inline-block;
+  font-size: 0.6875rem;
+  line-height: 1;
+  transition: transform 0.22s ease;
+}
+
+.pipeline-status-card__chevron--open {
+  transform: rotate(180deg);
+}
+
+/* ── Step list ────────────────────────────────────────────────────────── */
+.pipeline-status-card__steps {
+  overflow: hidden;
+  transition:
+    max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+  max-height: 0;
+  opacity: 0;
+}
+
+.pipeline-status-card__steps--open {
+  max-height: 28rem;
+  opacity: 1;
+}
+
+.pipeline-status-step {
+  display: flex;
+  align-items: center;
+  gap: 0.6875rem;
+  padding: 0.5625rem 0;
+  border-top: 1px solid #222220;
+}
+
+.pipeline-status-step:first-child {
+  margin-top: 0.625rem;
+}
+
+.pipeline-status-step__icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pipeline-status-step__icon--done {
+  background: rgba(45, 158, 117, 0.15);
+}
+
+.pipeline-status-step__icon--running {
+  background: rgba(59, 143, 232, 0.12);
+}
+
+.pipeline-status-step__icon--pending {
+  background: #252523;
+}
+
+.pipeline-status-step__icon--blocked {
+  background: rgba(234, 179, 8, 0.12);
+}
+
+.pipeline-status-step__icon--failed {
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.pipeline-status-step__check {
+  width: 10px;
+  height: 10px;
+  stroke: #2d9e75;
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pipeline-status-step__spinner {
+  width: 11px;
+  height: 11px;
+  stroke: #3b8fe8;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  animation: pipeline-status-spin 1s linear infinite;
+}
+
+@keyframes pipeline-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pipeline-status-step__pending-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #383835;
+}
+
+.pipeline-status-step__name {
+  flex: 1;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.pipeline-status-step__name--done {
+  color: #c8c8c0;
+}
+
+.pipeline-status-step__name--running {
+  color: #a8c8f0;
+}
+
+.pipeline-status-step__name--pending {
+  color: #4a4a47;
+}
+
+.pipeline-status-step__name--blocked {
+  color: #d4b86a;
+}
+
+.pipeline-status-step__name--failed {
+  color: #f0a8a8;
+}
+
+.pipeline-status-step__tag {
+  font-size: 0.65625rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 0.625rem;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.pipeline-status-step__tag--done {
+  color: #2d7a5c;
+  background: rgba(45, 158, 117, 0.1);
+}
+
+.pipeline-status-step__tag--running {
+  color: #3b8fe8;
+  background: rgba(59, 143, 232, 0.1);
+}
+
+.pipeline-status-step__tag--blocked {
+  color: #ca8a04;
+  background: rgba(234, 179, 8, 0.1);
+}
+
+.pipeline-status-step__tag--failed {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pipeline-status-step__spinner {
+    animation: none;
+  }
+
+  .pipeline-status-card__steps,
+  .pipeline-status-card__chevron {
+    transition: none;
+  }
+}

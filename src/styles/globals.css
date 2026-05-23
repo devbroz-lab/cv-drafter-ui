@@ -63,6 +63,48 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Field editor — instruction inputs (dark surface, readable typed text) */
+.editor-instruction-input {
+  width: 100%;
+  resize: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  background: #1a1a1a;
+  color: #ececec;
+  caret-color: #ececec;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.editor-instruction-input::placeholder {
+  color: #737373;
+}
+
+.editor-instruction-input:focus {
+  border-color: rgba(217, 119, 87, 0.5);
+  box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.12);
+}
+
+.editor-instruction-input:-webkit-autofill,
+.editor-instruction-input:-webkit-autofill:hover,
+.editor-instruction-input:-webkit-autofill:focus,
+.editor-instruction-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #1a1a1a inset;
+  -webkit-text-fill-color: #ececec;
+  caret-color: #ececec;
+  transition: background-color 99999s ease-out 0s;
+}
+
+.editor-instruction-input:autofill {
+  box-shadow: 0 0 0 1000px #1a1a1a inset;
+  -webkit-text-fill-color: #ececec;
+  caret-color: #ececec;
+}
+
 /* ── Editor workspace scrollbars (WebKit + Firefox) ─────────────────────── */
 .editor-scrollbar {
   scrollbar-gutter: stable;

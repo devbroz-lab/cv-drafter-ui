@@ -1,168 +1,138 @@
-import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import clsx from "clsx";
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import {
   checkpointPendingLabel,
-  pipelineBlockedHint,
 } from "../../lib/sessionStatusLabels";
 import type { ManifestResponse, SessionStatus } from "../../lib/types";
-import {
-  currentUserStageIndex,
-  deriveUserPipelineStages,
-  userStageRowMode,
-  type UserPipelineStageView,
-} from "./pipelineSteps";
+import { deriveUserPipelineStages, type UserPipelineStageView } from "./pipelineSteps";
+import type { StepVisualState } from "./stepVisual";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const LAYOUT_SPRING = { type: "spring" as const, stiffness: 420, damping: 36, mass: 0.85 };
-const CELEBRATE_MS = 1100;
 
-type RowMode = "active" | "celebrate" | "collapsed" | "blocked";
+type TrackStatus = "done" | "running" | "pending";
 
-function FlowDot({ mode }: { mode: RowMode }) {
-  const reduce = useReducedMotion();
+function toTrackStatus(visual: StepVisualState): TrackStatus {
+  if (visual === "completed" || visual === "approved") return "done";
+  if (visual === "running" || visual === "blocked" || visual === "failed") return "running";
+  return "pending";
+}
 
-  if (mode === "celebrate" || mode === "collapsed") {
-    return (
-      <motion.span
-        layout
-        className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--chat-accent-soft)] ring-1 ring-[var(--chat-accent)]/40"
-        initial={reduce ? false : { scale: 0.6 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", stiffness: 500, damping: 28 }}
-      >
-        <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 text-[var(--chat-accent)]" aria-hidden>
-          <path
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M5 10.5 8.5 14 15 7"
-          />
-        </svg>
-      </motion.span>
-    );
+function pipelineCardTitle(
+  allDone: boolean,
+  sessionStatus: SessionStatus | undefined,
+): string {
+  if (allDone) return "All stages complete";
+  if (sessionStatus === "failed") return "Processing stopped";
+  if (
+    sessionStatus === "processing" ||
+    sessionStatus === "checkpoint_1_pending" ||
+    sessionStatus === "checkpoint_2_pending" ||
+    sessionStatus === "checkpoint_3_pending"
+  ) {
+    return "Processing your CV…";
   }
+  return "Your CV journey";
+}
 
-  if (mode === "blocked") {
-    return (
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/15 ring-1 ring-amber-400/35 text-[11px] font-bold text-amber-200">
-        !
-      </span>
-    );
-  }
-
+function PipelineProgressTrack({ statuses }: { statuses: TrackStatus[] }) {
   return (
-    <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
-      {!reduce && (
-        <span
-          className="session-pulse-ring absolute inset-0 rounded-full bg-[var(--session-glow-accent)] blur-md"
-          aria-hidden
-        />
-      )}
-      <span className="relative flex h-6 w-6 items-center justify-center rounded-full border border-[var(--chat-border)] bg-[var(--chat-bg)]">
-        <span className="h-2.5 w-2.5 rounded-full border-2 border-[var(--chat-text)] border-t-transparent motion-reduce:animate-none animate-spin" />
-      </span>
-    </span>
+    <div className="pipeline-status-track" aria-hidden>
+      {statuses.map((status, i) => (
+        <span key={i} className="contents">
+          <span
+            className={clsx(
+              "pipeline-status-track__dot",
+              status === "done" && "pipeline-status-track__dot--done",
+              status === "running" && "pipeline-status-track__dot--running",
+              status === "pending" && "pipeline-status-track__dot--pending",
+            )}
+          />
+          {i < statuses.length - 1 && (
+            <span
+              className={clsx(
+                "pipeline-status-track__line",
+                statuses[i] === "done" && statuses[i + 1] === "done" && "pipeline-status-track__line--done",
+                statuses[i] === "done" &&
+                  statuses[i + 1] === "running" &&
+                  "pipeline-status-track__line--half",
+                !(statuses[i] === "done" && (statuses[i + 1] === "done" || statuses[i + 1] === "running")) &&
+                  "pipeline-status-track__line--pending",
+              )}
+            />
+          )}
+        </span>
+      ))}
+    </div>
   );
 }
 
-const PipelineFlowStep = forwardRef<
-  HTMLLIElement,
-  { stage: UserPipelineStageView; mode: RowMode; index: number; sessionStatus?: SessionStatus }
->(function PipelineFlowStep({ stage, mode, index, sessionStatus }, ref) {
-  const reduce = useReducedMotion();
-  const { label, activePhrase } = stage;
-  const expanded = mode === "active" || mode === "celebrate" || mode === "blocked";
+function StepStatusTag({ visual }: { visual: StepVisualState }) {
+  if (visual === "completed" || visual === "approved") {
+    return <span className="pipeline-status-step__tag pipeline-status-step__tag--done">Done</span>;
+  }
+  if (visual === "running") {
+    return <span className="pipeline-status-step__tag pipeline-status-step__tag--running">Running</span>;
+  }
+  if (visual === "blocked") {
+    return <span className="pipeline-status-step__tag pipeline-status-step__tag--blocked">Needs you</span>;
+  }
+  if (visual === "failed") {
+    return <span className="pipeline-status-step__tag pipeline-status-step__tag--failed">Stopped</span>;
+  }
+  return null;
+}
+
+function PipelineStepRow({ stage }: { stage: UserPipelineStageView }) {
+  const { label, visual } = stage;
 
   return (
-    <motion.li
-      ref={ref}
-      layout="position"
-      initial={reduce ? false : { opacity: 0, y: 14, filter: "blur(4px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ duration: 0.5, ease: EASE, delay: reduce ? 0 : Math.min(index * 0.04, 0.2) }}
-      className="relative flex gap-3"
-    >
-      <motion.div layout className="flex w-6 shrink-0 justify-center pt-1">
-        <FlowDot mode={mode} />
-      </motion.div>
-
-      <motion.div
-        layout
-        transition={LAYOUT_SPRING}
+    <li className="pipeline-status-step">
+      <span
         className={clsx(
-          "min-w-0 flex-1 overflow-hidden rounded-2xl",
-          mode === "active" && "pipeline-step-row--active",
-          mode === "celebrate" && "pipeline-step-row--celebrate",
-          mode === "collapsed" && "pipeline-step-row--done",
-          mode === "blocked" && "pipeline-step-row--blocked",
+          "pipeline-status-step__icon",
+          (visual === "completed" || visual === "approved") && "pipeline-status-step__icon--done",
+          visual === "running" && "pipeline-status-step__icon--running",
+          visual === "pending" && "pipeline-status-step__icon--pending",
+          visual === "blocked" && "pipeline-status-step__icon--blocked",
+          visual === "failed" && "pipeline-status-step__icon--failed",
         )}
       >
-        <AnimatePresence mode="wait" initial={false}>
-          {expanded ? (
-            <motion.div
-              key="expanded"
-              initial={reduce ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={reduce ? undefined : { opacity: 0 }}
-              transition={{ duration: 0.28 }}
-              className="relative px-4 py-4 sm:px-5 sm:py-[1.125rem]"
-            >
-              {!reduce && mode === "active" && (
-                <div className="pipeline-step-shimmer pointer-events-none absolute inset-0 opacity-50" aria-hidden />
-              )}
-              <p className="session-card-eyebrow relative">
-                {mode === "celebrate" ? "Complete" : mode === "blocked" ? "Needs you" : "In progress"}
-              </p>
-              <h3 className="session-card-title relative mt-1 text-[0.9375rem] sm:text-base">
-                {label}
-              </h3>
-              <motion.p
-                initial={reduce ? false : { opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.08, duration: 0.35, ease: EASE }}
-                className="relative mt-2 text-sm leading-relaxed text-[var(--chat-muted,#b4b4b4)]"
-              >
-                {mode === "celebrate"
-                  ? "Stage finished — moving on"
-                  : mode === "blocked"
-                  ? pipelineBlockedHint(sessionStatus)
-                  : activePhrase}
-              </motion.p>
-              {mode === "active" && !reduce && (
-                <motion.div
-                  className="relative mt-4 h-0.5 overflow-hidden rounded-full bg-[var(--chat-surface-hover,#262626)]"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <motion.div
-                    className="h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-[var(--chat-text,#ececec)] to-transparent"
-                    animate={{ x: ["-100%", "320%"] }}
-                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                </motion.div>
-              )}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="collapsed"
-              layout
-              initial={reduce ? false : { opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, ease: EASE }}
-              className="flex items-center px-3 py-2.5 sm:px-4"
-            >
-              <span className="text-sm text-[var(--chat-muted,#b4b4b4)]">{label}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-    </motion.li>
+        {(visual === "completed" || visual === "approved") && (
+          <svg className="pipeline-status-step__check" viewBox="0 0 12 12" aria-hidden>
+            <polyline points="2,6 5,9 10,3" />
+          </svg>
+        )}
+        {visual === "running" && (
+          <svg className="pipeline-status-step__spinner" viewBox="0 0 12 12" aria-hidden>
+            <path d="M6 1.5 A4.5 4.5 0 0 1 10.5 6" strokeDasharray="7 14" />
+          </svg>
+        )}
+        {visual === "pending" && <span className="pipeline-status-step__pending-dot" />}
+        {visual === "blocked" && (
+          <span className="text-[10px] font-bold leading-none text-amber-400">!</span>
+        )}
+        {visual === "failed" && (
+          <span className="text-[10px] font-bold leading-none text-red-400">×</span>
+        )}
+      </span>
+      <span
+        className={clsx(
+          "pipeline-status-step__name",
+          (visual === "completed" || visual === "approved") && "pipeline-status-step__name--done",
+          visual === "running" && "pipeline-status-step__name--running",
+          visual === "pending" && "pipeline-status-step__name--pending",
+          visual === "blocked" && "pipeline-status-step__name--blocked",
+          visual === "failed" && "pipeline-status-step__name--failed",
+        )}
+      >
+        {label}
+      </span>
+      <StepStatusTag visual={visual} />
+    </li>
   );
-});
+}
 
 export function SessionPipelineTimeline({
   manifest,
@@ -176,55 +146,33 @@ export function SessionPipelineTimeline({
   manifestError: boolean;
 }) {
   const reduce = useReducedMotion();
-  const [celebrating, setCelebrating] = useState<string | null>(null);
-  const seenCompletedRef = useRef<Set<string>>(new Set());
-  const prevVisualRef = useRef<Map<string, string>>(new Map());
-  const celebrateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  const stepsListId = useId();
   const backendSteps = manifest?.steps ?? [];
   const userStages = deriveUserPipelineStages(backendSteps, sessionStatus);
-  const cur = userStages.length ? currentUserStageIndex(userStages) : 0;
   const allDone = sessionStatus === "completed" || userStages.every((s) => s.visual === "completed");
+  const doneCount = userStages.filter(
+    (s) => s.visual === "completed" || s.visual === "approved",
+  ).length;
+  const totalCount = userStages.length;
+
+  const [stepsOpen, setStepsOpen] = useState(() => !allDone);
 
   useEffect(() => {
-    if (reduce || !userStages.length) return;
-
-    for (const stage of userStages) {
-      const prev = prevVisualRef.current.get(stage.id);
-      prevVisualRef.current.set(stage.id, stage.visual);
-
-      const justCompleted =
-        stage.visual === "completed" && prev !== undefined && prev !== "completed";
-      if (!justCompleted || seenCompletedRef.current.has(stage.id)) continue;
-
-      seenCompletedRef.current.add(stage.id);
-      setCelebrating(stage.id);
-      if (celebrateTimerRef.current) clearTimeout(celebrateTimerRef.current);
-      celebrateTimerRef.current = setTimeout(() => {
-        setCelebrating(null);
-        celebrateTimerRef.current = null;
-      }, CELEBRATE_MS);
-      break;
-    }
-  }, [userStages, reduce]);
-
-  useEffect(() => {
-    return () => {
-      if (celebrateTimerRef.current) clearTimeout(celebrateTimerRef.current);
-    };
-  }, []);
+    if (allDone) setStepsOpen(false);
+    else if (doneCount > 0) setStepsOpen(true);
+  }, [allDone, doneCount]);
 
   if (manifestLoading && !manifest && sessionStatus && sessionStatus !== "queued") {
     return (
       <motion.div
         initial={reduce ? false : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="session-panel px-6 py-8"
+        className="session-panel pipeline-status-card px-6 py-8"
       >
-        <motion.div className="flex items-center gap-3 text-sm text-[var(--chat-muted,#b4b4b4)]">
+        <div className="flex items-center gap-3 text-sm text-[var(--chat-muted,#b4b4b4)]">
           <span className="inline-flex h-4 w-4 shrink-0 rounded-full border-2 border-[var(--chat-text)] border-t-transparent motion-reduce:animate-none animate-spin" />
           Warming up stages…
-        </motion.div>
+        </div>
       </motion.div>
     );
   }
@@ -234,7 +182,7 @@ export function SessionPipelineTimeline({
       <motion.div
         initial={reduce ? false : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="session-panel px-6 py-8"
+        className="session-panel pipeline-status-card px-6 py-8"
       >
         <p className="text-sm text-[var(--chat-muted,#b4b4b4)]">
           Stages will stream here as soon as the run starts.
@@ -245,16 +193,19 @@ export function SessionPipelineTimeline({
 
   if (!userStages.length) return null;
 
-  const visible = userStages
-    .map((stage, i) => {
-      const mode = userStageRowMode(stage, i, cur, celebrating, allDone);
-      return mode ? { stage, mode, i } : null;
-    })
-    .filter(Boolean) as { stage: UserPipelineStageView; mode: RowMode; i: number }[];
-
-  const doneCount = userStages.filter((s) => s.visual === "completed").length;
-  const totalCount = userStages.length;
+  const trackStatuses = userStages.map((s) => toTrackStatus(s.visual));
   const pendingHint = !allDone ? checkpointPendingLabel(manifest?.checkpoint_pending) : null;
+  const reviewerWarning = manifest?.reviewer_blocked
+    ? "Review flagged an item — check the deliverable section when ready."
+    : null;
+  const warningMessage = reviewerWarning ?? pendingHint;
+
+  const summaryText =
+    doneCount === totalCount
+      ? "All stages completed successfully"
+      : `${doneCount} of ${totalCount} stages done`;
+
+  const title = pipelineCardTitle(allDone, sessionStatus);
 
   return (
     <motion.section
@@ -262,69 +213,68 @@ export function SessionPipelineTimeline({
       initial={reduce ? false : { opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE }}
-      className="session-panel session-card px-6 py-7 sm:px-8 sm:py-8"
+      className="session-panel session-card pipeline-status-card"
+      aria-labelledby={`${stepsListId}-title`}
     >
-      <motion.div layout className="session-card-header flex items-end justify-between gap-4">
-        <motion.div layout>
-          <span className="session-card-eyebrow">Pipeline</span>
-          <h2 className="session-card-title mt-1">
-            {allDone ? "All stages complete" : "Your CV journey"}
-          </h2>
-        </motion.div>
-        <motion.span
-          layout
-          key={doneCount}
-          initial={reduce ? false : { opacity: 0.6, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="session-meta-pill tabular-nums"
-        >
-          {doneCount}
-          <span className="opacity-50"> / </span>
-          {totalCount}
-        </motion.span>
-      </motion.div>
+      <div className="pipeline-status-card__top">
+        <span className="pipeline-status-card__label">Pipeline</span>
+        <span className="pipeline-status-card__count">
+          {doneCount} / {totalCount}
+        </span>
+      </div>
 
-      {pendingHint && (
-        <motion.p
-          layout
-          initial={reduce ? false : { opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-4 text-sm leading-relaxed text-[var(--chat-accent)]"
-        >
-          {pendingHint}
-        </motion.p>
+      <h2 className="pipeline-status-card__title" id={`${stepsListId}-title`}>
+        {title}
+      </h2>
+
+      {warningMessage && (
+        <div className="pipeline-status-card__warning" role="status">
+          <span className="pipeline-status-card__warning-dot" aria-hidden />
+          <p className="pipeline-status-card__warning-text">{warningMessage}</p>
+        </div>
       )}
 
-      {manifest?.reviewer_blocked && (
-        <motion.p
-          layout
-          initial={reduce ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-3 text-sm leading-relaxed text-amber-200/80"
-        >
-          Review flagged an item — check the deliverable section when ready.
-        </motion.p>
-      )}
+      <PipelineProgressTrack statuses={trackStatuses} />
 
-      <LayoutGroup>
-        <ul className="relative mt-7 space-y-2">
+      <div
+        className="pipeline-status-card__toggle"
+        role="button"
+        tabIndex={0}
+        aria-expanded={stepsOpen}
+        aria-controls={stepsListId}
+        onClick={() => setStepsOpen((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setStepsOpen((o) => !o);
+          }
+        }}
+      >
+        <span className="pipeline-status-card__summary">{summaryText}</span>
+        <span className="pipeline-status-card__toggle-btn" aria-hidden>
+          {stepsOpen ? "Hide" : "Show"} steps
           <span
-            className="pipeline-flow-rail pointer-events-none absolute bottom-3 left-[0.6875rem] top-3 w-px"
-            aria-hidden
-          />
-          <AnimatePresence initial={false} mode="popLayout">
-            {visible.map(({ stage, mode, i }) => (
-              <PipelineFlowStep
-                key={stage.id}
-                stage={stage}
-                mode={mode}
-                index={i}
-                sessionStatus={sessionStatus}
-              />
-            ))}
-          </AnimatePresence>
-        </ul>
-      </LayoutGroup>
+            className={clsx(
+              "pipeline-status-card__chevron",
+              stepsOpen && "pipeline-status-card__chevron--open",
+            )}
+          >
+            ⌄
+          </span>
+        </span>
+      </div>
+
+      <ul
+        id={stepsListId}
+        className={clsx(
+          "pipeline-status-card__steps list-none p-0 m-0",
+          stepsOpen && "pipeline-status-card__steps--open",
+        )}
+      >
+        {userStages.map((stage) => (
+          <PipelineStepRow key={stage.id} stage={stage} />
+        ))}
+      </ul>
     </motion.section>
   );
 }
