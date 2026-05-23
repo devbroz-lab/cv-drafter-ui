@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 
+import { ALLOWLIST_DENIED_MESSAGE, isEmailAllowed, normalizeEmail } from "../lib/allowedEmails";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { Card } from "../components/ui";
@@ -33,9 +34,13 @@ export function SignupPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!isEmailAllowed(email)) {
+      toast(ALLOWLIST_DENIED_MESSAGE, "error");
+      return;
+    }
     setBusy(true);
     try {
-      await signUp(email, password);
+      await signUp(normalizeEmail(email), password);
       toast("Account created.");
       navigate("/", { replace: true });
     } catch (err: unknown) {

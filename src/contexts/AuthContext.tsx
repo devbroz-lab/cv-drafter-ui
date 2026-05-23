@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { isEmailAllowed } from "../lib/allowedEmails";
 import { login, loginWithGoogle, loginWithMicrosoft, logout, signup } from "../lib/authApi";
 import { clearStoredSession, getStoredSession, type AuthSession, type AuthUser } from "../lib/authStorage";
 
@@ -25,6 +26,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const sync = () => {
       const current = getStoredSession();
+      if (current?.user?.email && !isEmailAllowed(current.user.email)) {
+        clearStoredSession();
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
       setSession(current);
       setUser(current?.user ?? null);
       setLoading(false);

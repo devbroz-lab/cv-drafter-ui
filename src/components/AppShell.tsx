@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import clsx from "clsx";
 
 import { useAuth } from "../contexts/AuthContext";
+import { APP_NAME } from "../lib/brand";
 import { SidebarSessionList } from "./SidebarSessionList";
 
 const SIDEBAR_STORAGE_KEY = "cv-drafter-sidebar-collapsed";
@@ -106,7 +107,7 @@ export function AppShell() {
       <aside className="app-shell-sidebar" aria-label="Main navigation">
         <div className="app-shell-sidebar-head">
           <div className="app-shell-sidebar-brand min-w-0">
-            <div className="app-shell-sidebar-eyebrow truncate">CV Reformatter</div>
+            <div className="app-shell-sidebar-eyebrow truncate">{APP_NAME}</div>
             <div className="app-shell-sidebar-title truncate">Workspace</div>
           </div>
           <button

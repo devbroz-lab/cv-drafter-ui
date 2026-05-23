@@ -5,7 +5,7 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!url || !anonKey) {
   console.warn(
-    "[cv-reformatter] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — auth will fail until configured.",
+    "[Tailor-it] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — auth will fail until configured.",
   );
 }
 

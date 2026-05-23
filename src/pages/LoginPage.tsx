@@ -8,6 +8,8 @@ import { useToast } from "../contexts/ToastContext";
 import { formatApiError } from "../lib/api";
 import { MicrosoftIcon } from "../components/auth/AuthBrandIcons";
 import { GoogleSsoButton } from "../components/auth/GoogleSsoButton";
+import { ALLOWLIST_DENIED_MESSAGE, isEmailAllowed, normalizeEmail } from "../lib/allowedEmails";
+import { APP_NAME } from "../lib/brand";
 import { Card } from "../components/ui";
 
 const PROMO_FEATURES = [
@@ -48,9 +50,13 @@ export function LoginPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!isEmailAllowed(email)) {
+      toast(ALLOWLIST_DENIED_MESSAGE, "error");
+      return;
+    }
     setBusy(true);
     try {
-      await signIn(email, password);
+      await signIn(normalizeEmail(email), password);
       navigate("/", { replace: true });
       toast("Signed in.");
     } catch (err: unknown) {
@@ -98,7 +104,7 @@ export function LoginPage() {
       <motion.div className="auth-page__shell" {...motionProps}>
         <div className="auth-page__layout">
           <Card tone="session" className="auth-page__panel auth-page__panel--promo">
-            <span className="auth-page__badge">CV Reformatter</span>
+            <span className="auth-page__badge">{APP_NAME}</span>
             <h1 className="auth-page__promo-title">
               Build interview-ready CVs with the guided agent pipeline.
             </h1>
