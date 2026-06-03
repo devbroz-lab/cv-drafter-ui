@@ -41,7 +41,7 @@ export async function fetchHealth(): Promise<{ status: string }> {
   return res.json() as Promise<{ status: string }>;
 }
 
-async function authorizedFetch(
+export async function authorizedFetch(
   path: string,
   init: RequestInit,
   token: string | null,
@@ -290,7 +290,28 @@ export async function submitFieldEdits(
 }
 
 export function formatApiError(e: unknown): string {
-  if (e instanceof ApiError) return parseDetail({ detail: e.detail });
+  if (e instanceof ApiError) {
+    if (isInsufficientCreditsDetail(e.detail)) {
+      const event =
+        e.detail.event === "revision" ? "revision" : "full pipeline run";
+      return (
+        `Not enough credits for this ${event}. ` +
+        `You need ${e.detail.required_credits} but have ${e.detail.available_credits} available.`
+      );
+    }
+    return parseDetail({ detail: e.detail });
+  }
   if (e instanceof Error) return e.message;
   return String(e);
+}
+
+function isInsufficientCreditsDetail(
+  detail: unknown,
+): detail is { required_credits: string; available_credits: string; event: string } {
+  return (
+    typeof detail === "object" &&
+    detail !== null &&
+    "required_credits" in detail &&
+    "available_credits" in detail
+  );
 }

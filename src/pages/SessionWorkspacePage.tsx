@@ -8,6 +8,7 @@ import { SessionLivePipelineStrip } from "../components/session/SessionPipeline"
 import { SessionPipelineTimeline } from "../components/session/SessionPipelineFlow";
 import { SkippedEditsPanel } from "../components/session/SkippedEditsPanel";
 import { useAuth } from "../contexts/AuthContext";
+import { fetchMeterBalance, formatCredits, parseCredits } from "../lib/metering";
 import { useToast } from "../contexts/ToastContext";
 import {
   ApiError,
@@ -131,6 +132,18 @@ export function SessionWorkspacePage() {
       !!sessionId &&
       (st === "checkpoint_3_pending" || st === "completed"),
   });
+
+  const balanceQuery = useQuery({
+    queryKey: ["metering", "balance"],
+    queryFn: () => fetchMeterBalance(accessToken!),
+    enabled: Boolean(accessToken),
+    staleTime: 30_000,
+  });
+
+  const revisionCost = parseCredits(balanceQuery.data?.rates.revision_credits);
+  const availableCredits = parseCredits(balanceQuery.data?.available_credits);
+  const canAffordRevision =
+    !balanceQuery.isSuccess || availableCredits >= revisionCost;
 
   // ── Recent session tracking ────────────────────────────────────────────────
 
@@ -336,6 +349,7 @@ export function SessionWorkspacePage() {
       void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
       void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
       void qc.invalidateQueries({ queryKey: ["output", sessionId] });
+      void qc.invalidateQueries({ queryKey: ["metering", "balance"] });
       setPendingEdits([]);
 
       const skipped = data.skipped ?? [];
@@ -732,7 +746,13 @@ export function SessionWorkspacePage() {
               viewerMode !== "field_editor" ||
               pendingEdits.length === 0 ||
               pendingEdits.some((e) => !e.instruction.trim()) ||
-              fieldEditMut.isPending
+              fieldEditMut.isPending ||
+              (balanceQuery.isSuccess && !canAffordRevision)
+            }
+            revisionCostLabel={
+              balanceQuery.isSuccess
+                ? `${formatCredits(revisionCost)} credits per apply`
+                : undefined
             }
             submitEditsBusy={viewerMode === "field_editor" && fieldEditMut.isPending}
             onEditsChange={viewerMode === "field_editor" ? setPendingEdits : (undefined as never)}
