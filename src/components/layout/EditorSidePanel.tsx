@@ -91,11 +91,12 @@ export function EditorSidePanel({ open, onClose, onExited, children }: EditorSid
       <div
         role="presentation"
         className={[
-          "absolute inset-0 bg-gradient-to-br from-black/55 via-black/45 to-black/35 backdrop-blur-md transition-[opacity,backdrop-filter]",
+          "absolute inset-0 backdrop-blur-md transition-[opacity,backdrop-filter]",
           motion,
           backdropOn ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         ].join(" ")}
         style={{
+          background: "var(--editor-backdrop)",
           transitionDuration: `${BACKDROP_MS}ms`,
           transitionTimingFunction: EASE,
         }}
@@ -111,8 +112,8 @@ export function EditorSidePanel({ open, onClose, onExited, children }: EditorSid
         onTransitionEnd={handlePanelTransitionEnd}
         className={[
           "pointer-events-auto relative flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden",
-          "border-l border-white/[0.07] shadow-[-48px_0_120px_-24px_rgba(0,0,0,0.75)]",
-          "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-10 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/15 before:to-transparent",
+          "editor-side-panel__dock border-l border-[var(--editor-chrome-border)] shadow-[-32px_0_80px_-24px_rgba(42,40,37,0.18)]",
+          "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-10 before:h-px before:bg-gradient-to-r before:from-transparent before:via-[var(--editor-chrome-border)] before:to-transparent",
           motion,
           "min-[480px]:w-[min(99vw,960px)] lg:w-[min(94vw,1520px)] xl:w-[min(92vw,1720px)] 2xl:w-[min(90vw,1880px)]",
           entered && open ? "translate-x-0" : "translate-x-[102%]",

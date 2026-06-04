@@ -270,23 +270,18 @@ function ReferenceItem({
   const loc = reference.locator;
   const badge =
     loc.location === "paragraph" ? (
-      <span className="rounded bg-blue-900/50 px-1.5 py-0.5 text-[10px] font-medium text-blue-300">
+      <span className="docx-viewer__loc-badge docx-viewer__loc-badge--para">
         p.{loc.paragraph_index}
       </span>
     ) : (
-      <span className="rounded bg-purple-900/50 px-1.5 py-0.5 text-[10px] font-medium text-purple-300">
+      <span className="docx-viewer__loc-badge docx-viewer__loc-badge--table">
         {tableLabels[loc.table_index] ?? `tbl.${loc.table_index}`} r{loc.row_index}c{loc.cell_index}
       </span>
     );
   const snippet = loc.text_content.length > 80 ? loc.text_content.slice(0, 80) + "…" : loc.text_content;
 
   return (
-    <div
-      className={[
-        "rounded-2xl border border-white/[0.06] bg-[var(--color-bg)]/85 p-4 text-xs transition-shadow duration-150",
-        "hover:border-white/[0.1] hover:shadow-md",
-      ].join(" ")}
-    >
+    <div className="docx-viewer__ref-card">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
@@ -297,7 +292,7 @@ function ReferenceItem({
         <button
           type="button"
           onClick={() => onRemove(reference.id)}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-white/5 hover:text-red-400"
+          className="docx-viewer__remove"
           aria-label="Remove reference"
         >
           ×
@@ -312,7 +307,7 @@ function ReferenceItem({
         {expanded ? "Hide locator" : "Show locator"}
       </button>
       {expanded && (
-        <pre className="mt-2 max-h-28 overflow-auto rounded-xl border border-white/[0.06] bg-black/25 p-3 font-mono text-[10px] leading-relaxed text-[var(--color-text-muted)] editor-scrollbar">
+        <pre className="mt-2 max-h-28 overflow-auto rounded-xl border border-[var(--editor-chrome-border)] bg-[var(--color-surface-muted)] p-3 font-mono text-[10px] leading-relaxed text-[var(--color-text-muted)] editor-scrollbar">
           {JSON.stringify(loc, null, 2)}
         </pre>
       )}
@@ -350,13 +345,7 @@ function FieldEditEntryItem({
   const color = EDIT_COLORS[colorIndex];
 
   return (
-    <div
-      className={[
-        "rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[var(--color-bg)]/90 to-[var(--color-surface)]/50 p-4 text-xs transition-shadow duration-150",
-        color.railGlow,
-        "hover:border-white/[0.1]",
-      ].join(" ")}
-    >
+    <div className={["docx-viewer__edit-card", color.railGlow].filter(Boolean).join(" ")}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className={`inline-block h-2 w-2 rounded-full ${color.dot}`} />
@@ -364,19 +353,15 @@ function FieldEditEntryItem({
             Edit {index + 1}
           </span>
           {entry.confidence === "mapped" ? (
-            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300/95">
-              mapped
-            </span>
+            <span className="docx-viewer__chip-mapped">mapped</span>
           ) : (
-            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-200/95">
-              verify path
-            </span>
+            <span className="docx-viewer__chip-verify">verify path</span>
           )}
         </div>
         <button
           type="button"
           onClick={() => onRemove(entry.id)}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-white/5 hover:text-red-400"
+          className="docx-viewer__remove"
           aria-label="Remove edit"
         >
           ×
@@ -749,17 +734,17 @@ export function DocxViewer(props: DocxViewerProps) {
   return (
     <>
       <div className="editor-motion-safe flex h-full min-h-0 w-full flex-col overflow-hidden bg-transparent">
-        <header className="relative z-20 flex shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] bg-zinc-950/55 px-5 py-4">
+        <header className="docx-viewer__header">
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-[15px] font-semibold tracking-[-0.03em] text-[var(--color-text)]">
+              <h1 className="docx-viewer__title">
                 {mode === "field_editor" ? "Field workspace" : "Reference workspace"}
               </h1>
-              <span className="rounded-full border border-white/[0.08] bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+              <span className="docx-viewer__badge">
                 {mode === "field_editor" ? "Live edit" : "Live capture"}
               </span>
             </div>
-            <p className="max-w-xl text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+            <p className="docx-viewer__lead">
               {mode === "field_editor"
                 ? "Build a batch of up to five edits on the canvas, then apply when you are ready."
                 : "Click the canvas to record locators and notes for export."}
@@ -769,7 +754,7 @@ export function DocxViewer(props: DocxViewerProps) {
             type="button"
             onClick={onClose}
             aria-label="Close workspace"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[var(--color-text-muted)] transition-all duration-200 hover:border-white/14 hover:bg-white/[0.09] hover:text-[var(--color-text)] active:scale-[0.96]"
+            className="docx-viewer__close active:scale-[0.96]"
           >
             <span className="text-[20px] leading-none">×</span>
           </button>
@@ -785,7 +770,7 @@ export function DocxViewer(props: DocxViewerProps) {
               <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-3">
                 <span className="relative flex h-9 w-9">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-accent)]/25" />
-                  <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5">
+                  <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--editor-chrome-border)] bg-[var(--color-surface-raised)]">
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
                   </span>
                 </span>
@@ -793,18 +778,13 @@ export function DocxViewer(props: DocxViewerProps) {
               </div>
             )}
             {error && (
-              <div className="mx-auto max-w-lg rounded-2xl border border-red-500/25 bg-red-950/40 px-5 py-4 text-[13px] leading-relaxed text-red-200/95">
-                <strong className="font-semibold text-red-100">Could not load document</strong>
-                <p className="mt-2 text-red-200/80">{error}</p>
+              <div className="docx-viewer__error">
+                <strong className="font-semibold">Could not load document</strong>
+                <p className="mt-2 opacity-90">{error}</p>
               </div>
             )}
             {!loading && !error && (
-              <div
-                className="w-full max-w-none space-y-3 rounded-[1.35rem] p-5 shadow-[var(--editor-paper-shadow)] md:space-y-3.5 md:p-8 lg:p-9"
-                style={{
-                  background: "linear-gradient(180deg, #fdfefe 0%, #f6f8fa 55%, #f1f4f8 100%)",
-                }}
-              >
+              <div className="docx-viewer__paper space-y-3 md:space-y-3.5">
                 {blocks.map((block) => {
                   if (block.kind === "paragraph") {
                     if (!block.text.trim()) return null;
@@ -851,7 +831,7 @@ export function DocxViewer(props: DocxViewerProps) {
                   return (
                     <div
                       key={`t-${block.tableIndex}`}
-                      className="my-5 overflow-hidden rounded-2xl border border-white/40 bg-white/50 p-1.5 shadow-sm"
+                      className="docx-viewer__table-wrap"
                     >
                       <div className="overflow-x-auto rounded-[1.1rem] editor-scrollbar">
                         <table className="w-full min-w-[280px] border-separate border-spacing-1.5 text-[13px] text-zinc-800/95">
@@ -900,7 +880,7 @@ export function DocxViewer(props: DocxViewerProps) {
                                     }
                                   >
                                     {cell.text || (
-                                      <span className="italic text-zinc-400">empty</span>
+                                      <span className="docx-viewer__empty-cell">empty</span>
                                     )}
                                     {composite && mode === "field_editor" && (
                                       <span
@@ -926,7 +906,7 @@ export function DocxViewer(props: DocxViewerProps) {
           </div>
 
           {/* Inspector */}
-          <aside className="flex max-h-[36vh] min-h-0 w-full shrink-0 flex-col border-t border-white/[0.06] bg-zinc-950/50 md:max-h-none md:w-[15.5rem] md:shrink-0 md:border-l md:border-t-0 lg:w-[16.5rem]">
+          <aside className="docx-viewer__rail">
             <div className="shrink-0 space-y-1 px-5 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">
                 {rightPanelTitle}
@@ -937,9 +917,9 @@ export function DocxViewer(props: DocxViewerProps) {
             <div className="editor-scrollbar flex-1 space-y-3 overflow-y-auto px-4 pb-4 pt-1 md:px-5">
               {mode === "field_editor" ? (
                 fieldEdits.length === 0 ? (
-                  <div className="mt-6 rounded-2xl border border-dashed border-white/[0.1] bg-white/[0.03] px-5 py-10 text-center transition-colors duration-300 hover:border-white/[0.14]">
+                  <div className="docx-viewer__empty">
                     <p className="text-[12px] font-medium text-[var(--color-text-muted)]">No edits queued</p>
-                    <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]/90">
+                    <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
                       Click the canvas to capture a field and add an instruction.
                     </p>
                   </div>
@@ -956,9 +936,9 @@ export function DocxViewer(props: DocxViewerProps) {
                   ))
                 )
               ) : references.length === 0 ? (
-                <div className="mt-6 rounded-2xl border border-dashed border-white/[0.1] bg-white/[0.03] px-5 py-10 text-center transition-colors duration-300 hover:border-white/[0.14]">
+                <div className="docx-viewer__empty">
                   <p className="text-[12px] font-medium text-[var(--color-text-muted)]">No references yet</p>
-                  <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]/90">
+                  <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
                     Select paragraphs or cells on the canvas to list them here.
                   </p>
                 </div>
@@ -979,10 +959,10 @@ export function DocxViewer(props: DocxViewerProps) {
         </div>
 
         {showActionDock && (
-          <footer className="relative z-20 shrink-0 border-t border-white/[0.08] bg-zinc-950/70 px-5 py-4">
+          <footer className="docx-viewer__footer">
             {mode === "field_editor" && onSubmitEdits ? (
               <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-[11px] text-[var(--color-text-muted)]">
+                <p className="docx-viewer__footer-hint">
                   {fieldEdits.length === 0
                     ? revisionCostLabel
                       ? `Queue edits on the canvas, then apply (${revisionCostLabel}).`
@@ -998,7 +978,7 @@ export function DocxViewer(props: DocxViewerProps) {
                       setFieldEdits([]);
                       notifyEditsChange([]);
                     }}
-                    className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-[12px] font-medium text-[var(--color-text-muted)] transition-all duration-200 hover:border-white/15 hover:bg-white/[0.08] hover:text-[var(--color-text)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
+                    className="docx-viewer__btn-secondary active:scale-[0.98]"
                     disabled={fieldEdits.length === 0}
                   >
                     Clear all
@@ -1007,33 +987,33 @@ export function DocxViewer(props: DocxViewerProps) {
                     type="button"
                     disabled={submitEditsDisabled}
                     onClick={onSubmitEdits}
-                    className="rounded-xl bg-gradient-to-b from-[#e89572] to-[var(--color-accent)] px-5 py-2.5 text-[12px] font-semibold text-white shadow-[0_8px_28px_-6px_rgba(217,119,87,0.55)] transition-all duration-200 hover:shadow-[0_12px_36px_-6px_rgba(217,119,87,0.65)] hover:brightness-[1.03] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                    className="docx-viewer__btn-primary active:scale-[0.98]"
                   >
                     {submitEditsBusy
                       ? "Applying…"
                       : fieldEdits.length === 0
-                      ? "Apply edits"
-                      : `Apply ${fieldEdits.length} edit${fieldEdits.length === 1 ? "" : "s"}`}
+                      ? "Apply refinements"
+                      : `Apply ${fieldEdits.length} refinement${fieldEdits.length === 1 ? "" : "s"}`}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-[11px] text-[var(--color-text-muted)]">
+                <p className="docx-viewer__footer-hint">
                   {references.length} reference{references.length === 1 ? "" : "s"} captured
                 </p>
                 <div className="flex flex-wrap gap-2 sm:justify-end">
                   <button
                     type="button"
                     onClick={() => setReferences([])}
-                    className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-[12px] font-medium text-[var(--color-text-muted)] transition-all duration-200 hover:border-white/15 hover:bg-white/[0.08] hover:text-[var(--color-text)] active:scale-[0.98]"
+                    className="docx-viewer__btn-secondary active:scale-[0.98]"
                   >
                     Clear all
                   </button>
                   <button
                     type="button"
                     onClick={() => void copyAllJson()}
-                    className="rounded-xl border border-white/[0.1] bg-white/[0.08] px-5 py-2.5 text-[12px] font-semibold text-[var(--color-text)] transition-all duration-200 hover:bg-white/[0.12] active:scale-[0.98]"
+                    className="docx-viewer__btn-primary active:scale-[0.98]"
                   >
                     {copiedAll ? "Copied" : "Copy JSON"}
                   </button>

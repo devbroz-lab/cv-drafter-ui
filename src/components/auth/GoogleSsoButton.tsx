@@ -35,7 +35,7 @@ type GoogleSsoButtonProps = {
   disabled?: boolean;
   busy?: boolean;
   onCredential: (credential: string) => void | Promise<void>;
-  onError: () => void;
+  onError: (message: string) => void;
 };
 
 export function GoogleSsoButton({
@@ -52,7 +52,9 @@ export function GoogleSsoButton({
       if (response.credential) {
         void onCredential(response.credential);
       } else {
-        onError();
+        onError(
+          "Google did not return a sign-in token. Add this site URL under Authorized JavaScript origins in Google Cloud Console.",
+        );
       }
     },
     [onCredential, onError],
@@ -64,7 +66,11 @@ export function GoogleSsoButton({
         type="button"
         className="auth-page__sso-btn"
         disabled={disabled || busy}
-        onClick={onError}
+        onClick={() =>
+          onError(
+            "Google sign-in is not configured. Set VITE_GOOGLE_CLIENT_ID on the UI service and redeploy.",
+          )
+        }
       >
         <GoogleIcon />
         {busy ? "Signing in with Google…" : "Continue with Google"}

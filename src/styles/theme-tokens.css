@@ -1,0 +1,449 @@
+/**
+ * Tailor-it design tokens — dark & light themes.
+ * Avoid hardcoded colors in components; extend tokens here.
+ */
+
+/* ── Shared (theme-agnostic) ─────────────────────────────────────────────── */
+:root {
+  --radius: 12px;
+  --radius-sm: 0.625rem;
+  --radius-lg: 1.25rem;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --sidebar-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --theme-transition-duration: 0.35s;
+}
+
+html {
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Smooth theme switch — surfaces & typography only (not layout) */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color var(--theme-transition-duration) var(--ease-out),
+    border-color var(--theme-transition-duration) var(--ease-out),
+    color var(--theme-transition-duration) var(--ease-out),
+    box-shadow var(--theme-transition-duration) var(--ease-out),
+    fill var(--theme-transition-duration) var(--ease-out),
+    stroke var(--theme-transition-duration) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition: none !important;
+  }
+}
+
+/* ── Dark theme (default) ─────────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --color-bg: #212121;
+  --color-surface: #2f2f2f;
+  --color-surface-raised: #3a3a3a;
+  --color-surface-muted: #424242;
+  --color-border: #4a4a4a;
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-text: #ececec;
+  --color-text-muted: #a49e95;
+  --color-accent: #d97757;
+  --color-accent-hover: #e89572;
+  --color-accent-soft: rgba(217, 119, 87, 0.15);
+  --color-danger: #f87171;
+  --color-success: #34d399;
+  --color-warn: #fbbf24;
+
+  --btn-primary-bg: linear-gradient(180deg, #f4f4f3 0%, #e6e4e0 100%);
+  --btn-primary-text: #1c1c1a;
+  --btn-primary-hover: linear-gradient(180deg, #fafaf9 0%, #eeece8 100%);
+  --toggle-track: #3a3a3a;
+  --toggle-thumb: #ececec;
+  --toggle-thumb-active: #c4694d;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 2px 4px rgba(0, 0, 0, 0.35), 0 20px 50px -16px rgba(0, 0, 0, 0.75);
+  --shadow-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  --overlay-subtle: rgba(255, 255, 255, 0.03);
+  --overlay-hover: rgba(255, 255, 255, 0.06);
+  --overlay-border: rgba(255, 255, 255, 0.08);
+
+  --auth-bg: #000000;
+  --auth-glow: rgba(16, 163, 127, 0.08);
+
+  --editor-ease: var(--ease-out);
+  --editor-panel-bg: linear-gradient(
+    165deg,
+    rgba(46, 46, 48, 0.92) 0%,
+    rgba(28, 28, 32, 0.96) 45%,
+    rgba(22, 22, 26, 0.98) 100%
+  );
+  --editor-desk-bg: radial-gradient(
+      ellipse 100% 60% at 50% -15%,
+      rgba(217, 119, 87, 0.09),
+      transparent 55%
+    ),
+    linear-gradient(180deg, #1e2128 0%, #181a20 50%, #14161c 100%);
+  --editor-paper-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 24px 48px -12px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --editor-popover-bg: linear-gradient(165deg, #2c2c30 0%, #222226 45%, #191a1f 100%);
+  --editor-input-bg: #1a1a1a;
+  --editor-input-border: rgba(255, 255, 255, 0.1);
+  --editor-input-text: #ececec;
+  --editor-input-placeholder: #737373;
+  --editor-chrome-bg: rgba(24, 24, 27, 0.55);
+  --editor-chrome-border: rgba(255, 255, 255, 0.06);
+  --editor-chrome-header-bg: rgba(24, 24, 27, 0.55);
+  --editor-chrome-footer-bg: rgba(9, 9, 11, 0.72);
+  --editor-chrome-rail-bg: rgba(9, 9, 11, 0.5);
+  --editor-backdrop: rgba(0, 0, 0, 0.52);
+  --editor-paper-bg: linear-gradient(180deg, #fdfefe 0%, #f6f8fa 55%, #f1f4f8 100%);
+  --editor-badge-bg: rgba(255, 255, 255, 0.05);
+  --editor-badge-border: rgba(255, 255, 255, 0.08);
+  --editor-chip-mapped-bg: rgba(52, 211, 153, 0.14);
+  --editor-chip-mapped-text: #6ee7b7;
+  --editor-chip-verify-bg: rgba(251, 191, 36, 0.14);
+  --editor-chip-verify-text: #fde68a;
+
+  --session-ease-out: var(--ease-out);
+  --session-glow-accent: rgba(217, 119, 87, 0.45);
+  --session-glow-success: rgba(52, 211, 153, 0.35);
+  --session-glow-warn: rgba(251, 191, 36, 0.28);
+  --session-glow-danger: rgba(248, 113, 113, 0.3);
+
+  --chat-bg: #000000;
+  --chat-surface: #131313;
+  --chat-surface-raised: #1a1a1a;
+  --chat-surface-hover: #242424;
+  --chat-border: rgba(255, 255, 255, 0.09);
+  --chat-border-subtle: rgba(255, 255, 255, 0.05);
+  --chat-text: #f0f0f0;
+  --chat-muted: #8e8e8e;
+  --chat-accent: #10a37f;
+  --chat-accent-soft: rgba(16, 163, 127, 0.14);
+
+  --session-card-bg: radial-gradient(
+      ellipse 90% 55% at 50% -20%,
+      rgba(255, 255, 255, 0.055),
+      transparent 58%
+    ),
+    linear-gradient(168deg, #1c1c1c 0%, #121212 48%, #0e0e0e 100%);
+  --session-card-border-gradient: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.04) 38%,
+    rgba(255, 255, 255, 0.02) 52%,
+    rgba(255, 255, 255, 0.07) 100%
+  );
+  --session-card-crown: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  --session-btn-primary-bg: var(--btn-primary-bg);
+  --session-btn-primary-text: var(--btn-primary-text);
+  --session-progress-fill: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.75) 0%,
+    #ffffff 50%,
+    rgba(255, 255, 255, 0.85) 100%
+  );
+  --scrollbar-thumb: rgba(255, 255, 255, 0.14);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.24);
+  --scrollbar-accent: rgba(217, 119, 87, 0.35);
+
+  --shell-session-bg: #000000;
+  --shell-session-surface: #111111;
+  --shell-session-border: rgba(255, 255, 255, 0.08);
+  --shell-session-text: #ececec;
+  --shell-session-muted: #9b9b9b;
+
+  --pipeline-label: #8a8880;
+  --pipeline-summary: #6e6e68;
+  --pipeline-count-bg: #252523;
+  --pipeline-count-border: #353532;
+  --pipeline-count-text: #b8b8b0;
+  --pipeline-title: var(--chat-text);
+  --pipeline-divider: rgba(255, 255, 255, 0.06);
+  --pipeline-done: #34d399;
+  --pipeline-running: #60a5fa;
+  --pipeline-pending-core: #2e2e2b;
+  --pipeline-pending-ring: #454542;
+  --pipeline-pending-icon-bg: #252523;
+  --pipeline-pending-dot: #52524e;
+  --pipeline-name-done: #c8c8c0;
+  --pipeline-name-running: #93c5fd;
+  --pipeline-name-pending: #6e6e68;
+  --pipeline-name-blocked: #d4b86a;
+  --pipeline-name-failed: #fca5a5;
+  --pipeline-done-soft: rgba(52, 211, 153, 0.14);
+  --pipeline-running-soft: rgba(96, 165, 250, 0.14);
+  --pipeline-blocked-soft: rgba(251, 191, 36, 0.12);
+  --pipeline-failed-soft: rgba(248, 113, 113, 0.12);
+  --pipeline-tag-done-text: #6ee7b7;
+  --pipeline-tag-running-text: #93c5fd;
+
+  --insight-notice-bg: rgba(251, 191, 36, 0.08);
+  --insight-notice-border: rgba(251, 191, 36, 0.22);
+  --insight-notice-title: #fde68a;
+  --insight-notice-count-bg: rgba(0, 0, 0, 0.25);
+  --insight-notice-count-text: #fde68a;
+  --insight-notice-dot: #fbbf24;
+  --insight-warn-badge-bg: rgba(251, 191, 36, 0.14);
+  --insight-warn-badge-text: #fde68a;
+  --insight-attention-label: #fca5a5;
+  --insight-attention-border: rgba(248, 113, 113, 0.28);
+  --insight-attention-soft: rgba(248, 113, 113, 0.1);
+  --insight-chip-auto-bg: rgba(52, 211, 153, 0.14);
+  --insight-chip-auto-text: #6ee7b7;
+  --insight-chip-human-bg: rgba(251, 191, 36, 0.14);
+  --insight-chip-human-text: #fde68a;
+  --insight-field-chip-bg: rgba(0, 0, 0, 0.28);
+
+  --home-session-bg: radial-gradient(
+      ellipse 80% 60% at 50% -30%,
+      rgba(255, 255, 255, 0.04),
+      transparent 55%
+    ),
+    linear-gradient(168deg, rgba(28, 28, 28, 0.95) 0%, rgba(14, 14, 14, 0.98) 100%);
+  --home-session-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px -12px rgba(0, 0, 0, 0.55);
+  --home-session-hover-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.25), 0 16px 40px -16px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(16, 163, 127, 0.06);
+  --home-pill-bg: rgba(255, 255, 255, 0.03);
+  --home-pill-border: rgba(255, 255, 255, 0.06);
+  --home-pill-strong: rgba(220, 220, 220, 0.95);
+  --home-btn-open-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%);
+  --home-btn-open-hover-bg: linear-gradient(
+    180deg,
+    rgba(16, 163, 127, 0.14) 0%,
+    rgba(16, 163, 127, 0.05) 100%
+  );
+}
+
+/* ── Light theme — warm off-white / stone ─────────────────────────────────── */
+[data-theme="light"] {
+  --color-bg: #f7f6f3;
+  --color-surface: #faf9f7;
+  --color-surface-raised: #fdfcfa;
+  --color-surface-muted: #f0efec;
+  --color-border: #e8e6e1;
+  --color-border-subtle: rgba(55, 52, 48, 0.08);
+  --color-text: #2a2825;
+  --color-text-muted: #6e6a63;
+  --color-accent: #c4694d;
+  --color-accent-hover: #d97757;
+  --color-accent-soft: rgba(196, 105, 77, 0.12);
+  --color-danger: #c45c5c;
+  --color-success: #3d8f6e;
+  --color-warn: #b8860b;
+
+  --btn-primary-bg: linear-gradient(180deg, #3d3a36 0%, #2a2825 100%);
+  --btn-primary-text: #faf9f7;
+  --btn-primary-hover: linear-gradient(180deg, #4a4641 0%, #35322e 100%);
+  --toggle-track: #e8e6e1;
+  --toggle-thumb: #fdfcfa;
+  --toggle-thumb-active: #c4694d;
+
+  --shadow-xs: 0 1px 2px rgba(42, 40, 37, 0.04);
+  --shadow-sm: 0 2px 8px rgba(42, 40, 37, 0.06);
+  --shadow-md: 0 12px 32px rgba(42, 40, 37, 0.08);
+  --shadow-card: 0 1px 2px rgba(42, 40, 37, 0.04), 0 8px 24px -4px rgba(42, 40, 37, 0.1);
+  --shadow-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+
+  --overlay-subtle: rgba(42, 40, 37, 0.03);
+  --overlay-hover: rgba(42, 40, 37, 0.05);
+  --overlay-border: rgba(42, 40, 37, 0.1);
+
+  --auth-bg: #f5f4f1;
+  --auth-glow: rgba(196, 105, 77, 0.08);
+
+  --editor-panel-bg: linear-gradient(
+    165deg,
+    #fdfcfa 0%,
+    #f7f6f3 48%,
+    #f0efec 100%
+  );
+  --editor-desk-bg: radial-gradient(
+      ellipse 100% 60% at 50% -15%,
+      rgba(196, 105, 77, 0.06),
+      transparent 55%
+    ),
+    linear-gradient(180deg, #f0efec 0%, #f7f6f3 50%, #faf9f7 100%);
+  --editor-paper-shadow: 0 1px 2px rgba(42, 40, 37, 0.06),
+    0 16px 40px -8px rgba(42, 40, 37, 0.12), 0 0 0 1px rgba(42, 40, 37, 0.06);
+  --editor-popover-bg: linear-gradient(165deg, #fdfcfa 0%, #f7f6f3 45%, #f0efec 100%);
+  --editor-input-bg: #fdfcfa;
+  --editor-input-border: rgba(42, 40, 37, 0.12);
+  --editor-input-text: #2a2825;
+  --editor-input-placeholder: #9a958d;
+  --editor-chrome-bg: rgba(253, 252, 250, 0.92);
+  --editor-chrome-border: rgba(42, 40, 37, 0.08);
+  --editor-chrome-header-bg: rgba(253, 252, 250, 0.96);
+  --editor-chrome-footer-bg: #f5f4f1;
+  --editor-chrome-rail-bg: #faf9f7;
+  --editor-backdrop: rgba(42, 40, 37, 0.32);
+  --editor-paper-bg: linear-gradient(180deg, #fdfcfa 0%, #f7f6f3 55%, #f0efec 100%);
+  --editor-badge-bg: var(--color-accent-soft);
+  --editor-badge-border: rgba(196, 105, 77, 0.22);
+  --editor-chip-mapped-bg: rgba(61, 143, 110, 0.12);
+  --editor-chip-mapped-text: #2d6b52;
+  --editor-chip-verify-bg: rgba(184, 134, 11, 0.12);
+  --editor-chip-verify-text: #8a6914;
+
+  --session-glow-accent: rgba(196, 105, 77, 0.2);
+  --session-glow-success: rgba(61, 143, 110, 0.18);
+  --session-glow-warn: rgba(184, 134, 11, 0.15);
+  --session-glow-danger: rgba(196, 92, 92, 0.15);
+
+  --chat-bg: #f7f6f3;
+  --chat-surface: #faf9f7;
+  --chat-surface-raised: #fdfcfa;
+  --chat-surface-hover: #efeeeb;
+  --chat-border: rgba(55, 52, 48, 0.1);
+  --chat-border-subtle: rgba(55, 52, 48, 0.06);
+  --chat-text: #2a2825;
+  --chat-muted: #6e6a63;
+  --chat-accent: #c4694d;
+  --chat-accent-soft: rgba(196, 105, 77, 0.12);
+
+  --session-card-bg: linear-gradient(168deg, #fdfcfa 0%, #f7f6f3 52%, #f0efec 100%);
+  --session-card-border-gradient: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(42, 40, 37, 0.06) 40%,
+    rgba(42, 40, 37, 0.04) 100%
+  );
+  --session-card-crown: linear-gradient(90deg, transparent, rgba(42, 40, 37, 0.08), transparent);
+  --session-btn-primary-bg: var(--btn-primary-bg);
+  --session-btn-primary-text: var(--btn-primary-text);
+  --scrollbar-thumb: rgba(42, 40, 37, 0.18);
+  --scrollbar-thumb-hover: rgba(42, 40, 37, 0.28);
+  --scrollbar-accent: rgba(196, 105, 77, 0.35);
+
+  --shell-session-bg: #f5f4f1;
+  --shell-session-surface: #efeeeb;
+  --shell-session-border: rgba(55, 52, 48, 0.1);
+  --shell-session-text: #2a2825;
+  --shell-session-muted: #6e6a63;
+
+  --session-progress-fill: linear-gradient(
+    90deg,
+    rgba(42, 40, 37, 0.12) 0%,
+    #2a2825 50%,
+    rgba(42, 40, 37, 0.18) 100%
+  );
+
+  --pipeline-label: #9a958d;
+  --pipeline-summary: #6e6a63;
+  --pipeline-count-bg: #efeeeb;
+  --pipeline-count-border: var(--chat-border);
+  --pipeline-count-text: #6e6a63;
+  --pipeline-title: var(--chat-text);
+  --pipeline-divider: var(--chat-border-subtle);
+  --pipeline-done: var(--color-success);
+  --pipeline-running: var(--color-accent);
+  --pipeline-pending-core: #e8e6e1;
+  --pipeline-pending-ring: #d4d2cc;
+  --pipeline-pending-icon-bg: #f0efec;
+  --pipeline-pending-dot: #b8b4ac;
+  --pipeline-name-done: var(--chat-text);
+  --pipeline-name-running: #9a5c44;
+  --pipeline-name-pending: var(--chat-muted);
+  --pipeline-name-blocked: #8a6914;
+  --pipeline-name-failed: #b54a4a;
+  --pipeline-done-soft: rgba(61, 143, 110, 0.12);
+  --pipeline-running-soft: rgba(196, 105, 77, 0.12);
+  --pipeline-blocked-soft: rgba(184, 134, 11, 0.1);
+  --pipeline-failed-soft: rgba(196, 92, 92, 0.1);
+  --pipeline-tag-done-text: #2d6b52;
+  --pipeline-tag-running-text: #9a5c44;
+
+  --insight-notice-bg: rgba(184, 134, 11, 0.1);
+  --insight-notice-border: rgba(184, 134, 11, 0.28);
+  --insight-notice-title: #8a6914;
+  --insight-notice-count-bg: rgba(42, 40, 37, 0.06);
+  --insight-notice-count-text: #6e6a63;
+  --insight-notice-dot: #b8860b;
+  --insight-warn-badge-bg: rgba(184, 134, 11, 0.14);
+  --insight-warn-badge-text: #8a6914;
+  --insight-attention-label: #b54a4a;
+  --insight-attention-border: rgba(196, 92, 92, 0.28);
+  --insight-attention-soft: rgba(196, 92, 92, 0.08);
+  --insight-chip-auto-bg: rgba(61, 143, 110, 0.12);
+  --insight-chip-auto-text: #2d6b52;
+  --insight-chip-human-bg: rgba(184, 134, 11, 0.12);
+  --insight-chip-human-text: #8a6914;
+  --insight-field-chip-bg: rgba(42, 40, 37, 0.06);
+
+  --home-session-bg: linear-gradient(168deg, #fdfcfa 0%, #f7f6f3 52%, #f0efec 100%);
+  --home-session-shadow: var(--shadow-card);
+  --home-session-hover-shadow: var(--shadow-md), 0 0 0 1px rgba(196, 105, 77, 0.12);
+  --home-pill-bg: var(--chat-surface-hover);
+  --home-pill-border: var(--chat-border-subtle);
+  --home-pill-strong: var(--chat-text);
+  --home-btn-open-bg: var(--chat-surface-raised);
+  --home-btn-open-hover-bg: var(--color-accent-soft);
+}
+
+/* Light — session card variants */
+[data-theme="light"] .session-card--gate {
+  --session-card-bg: radial-gradient(
+      ellipse 70% 50% at 0% 0%,
+      rgba(196, 105, 77, 0.08),
+      transparent 55%
+    ),
+    linear-gradient(168deg, #fdfcfa 0%, #f7f6f3 48%, #f0efec 100%);
+}
+
+[data-theme="light"] .session-card--success {
+  --session-card-bg: radial-gradient(
+      ellipse 80% 60% at 100% 0%,
+      rgba(61, 143, 110, 0.1),
+      transparent 50%
+    ),
+    linear-gradient(168deg, #f5faf8 0%, #f7f6f3 42%, #f0efec 100%);
+}
+
+[data-theme="light"] .session-composer-surface::after {
+  background: linear-gradient(90deg, transparent, rgba(196, 105, 77, 0.25), transparent);
+}
+
+[data-theme="light"] .session-card--success::after {
+  background: linear-gradient(90deg, transparent, rgba(61, 143, 110, 0.3), transparent);
+}
+
+[data-theme="light"] .session-progress-fill {
+  box-shadow: none;
+}
+
+/* New session flow — theme-aware */
+[data-theme="light"] .ns {
+  --ns-bg: var(--chat-bg);
+  --ns-surface: var(--chat-surface);
+  --ns-elevated: var(--chat-surface-raised);
+  --ns-elevated-hover: var(--chat-surface-hover);
+  --ns-border: var(--chat-border);
+  --ns-border-strong: var(--chat-border);
+  --ns-text: var(--chat-text);
+  --ns-muted: var(--chat-muted);
+  --ns-muted-soft: #9a958d;
+  --ns-accent: var(--color-accent);
+  --ns-accent-dim: var(--color-accent-soft);
+}
+
+[data-theme="light"] .credit-balance--low {
+  color: var(--color-text);
+}
+
+[data-theme="light"] .credit-balance--low .credit-balance__value {
+  color: #8a6914;
+}

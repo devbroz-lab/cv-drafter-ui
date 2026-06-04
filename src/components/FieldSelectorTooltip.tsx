@@ -207,19 +207,17 @@ export function FieldSelectorTooltip({
         zIndex: 9999,
         background: "var(--editor-popover-bg)",
       }}
-      className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] text-xs text-[var(--color-text)] shadow-[0_24px_64px_-8px_rgba(0,0,0,0.88)]"
+      className="flex flex-col overflow-hidden rounded-2xl border border-[var(--editor-chrome-border)] text-xs text-[var(--color-text)] shadow-[var(--shadow-md)]"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-black/35 px-3.5 py-2.5">
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--editor-chrome-border)] bg-[var(--editor-chrome-header-bg)] px-3.5 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[12px] font-semibold tracking-tight text-[var(--color-text)]">
             {cellLabel}
           </span>
           {isEditing && (
-            <span className="shrink-0 rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-medium text-blue-200/95">
-              editing
-            </span>
+            <span className="docx-viewer__badge shrink-0">editing</span>
           )}
         </div>
         <button

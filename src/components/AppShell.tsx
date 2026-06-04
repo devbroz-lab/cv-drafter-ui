@@ -7,6 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { APP_NAME } from "../lib/brand";
 import { CreditBalance } from "./CreditBalance";
 import { SidebarSessionList } from "./SidebarSessionList";
+import { ThemeToggle } from "./ThemeToggle";
 
 const SIDEBAR_STORAGE_KEY = "cv-drafter-sidebar-collapsed";
 
@@ -132,7 +133,10 @@ export function AppShell() {
           </button>
         </div>
 
-        <CreditBalance collapsed={sidebarCollapsed} className="app-shell-credit-balance" />
+        <div className="app-shell-sidebar-meta">
+          <CreditBalance collapsed={sidebarCollapsed} />
+          <ThemeToggle collapsed={sidebarCollapsed} />
+        </div>
 
         <nav className="app-shell-sidebar-nav">
           <NavLink to="/" end className={navClass} title="Home">

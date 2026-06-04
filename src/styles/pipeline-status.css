@@ -1,4 +1,4 @@
-/* Pipeline status card — compact track + collapsible step list */
+/* Pipeline status card — theme-aware track + collapsible step list */
 
 .pipeline-status-card {
   border-radius: var(--chat-radius, 1.25rem);
@@ -17,15 +17,15 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #6b6b65;
+  color: var(--pipeline-label);
 }
 
 .pipeline-status-card__count {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #5a5a55;
-  background: #252523;
-  border: 1px solid #2e2e2b;
+  color: var(--pipeline-count-text);
+  background: var(--pipeline-count-bg);
+  border: 1px solid var(--pipeline-count-border);
   border-radius: 1.25rem;
   padding: 2px 10px;
   letter-spacing: 0.01em;
@@ -35,7 +35,7 @@
 .pipeline-status-card__title {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #e8e8e3;
+  color: var(--pipeline-title);
   margin-bottom: 0.875rem;
   line-height: 1.3;
 }
@@ -51,25 +51,30 @@
   margin-bottom: 1rem;
 }
 
+[data-theme="light"] .pipeline-status-card__warning {
+  background: rgba(184, 134, 11, 0.08);
+  border-color: rgba(184, 134, 11, 0.2);
+}
+
 .pipeline-status-card__warning-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #ca8a04;
+  background: var(--color-warn);
   flex-shrink: 0;
   margin-top: 5px;
 }
 
 .pipeline-status-card__warning-text {
   font-size: 0.78125rem;
-  color: #a16207;
+  color: var(--pipeline-name-blocked);
   line-height: 1.5;
 }
 
 .pipeline-status-card__hint {
   font-size: 0.78125rem;
   line-height: 1.5;
-  color: var(--chat-accent, #10a37f);
+  color: var(--chat-accent);
   margin-bottom: 1rem;
 }
 
@@ -91,16 +96,16 @@
 }
 
 .pipeline-status-track__dot--done {
-  background: #2d9e75;
+  background: var(--pipeline-done);
 }
 
 .pipeline-status-track__dot--running {
-  background: #3b8fe8;
+  background: var(--pipeline-running);
 }
 
 .pipeline-status-track__dot--pending {
-  background: #2e2e2b;
-  border: 1.5px solid #3a3a37;
+  background: var(--pipeline-pending-core);
+  border: 1.5px solid var(--pipeline-pending-ring);
 }
 
 .pipeline-status-track__line {
@@ -110,15 +115,19 @@
 }
 
 .pipeline-status-track__line--done {
-  background: #2d9e75;
+  background: var(--pipeline-done);
 }
 
 .pipeline-status-track__line--pending {
-  background: #2e2e2b;
+  background: var(--pipeline-pending-core);
 }
 
 .pipeline-status-track__line--half {
-  background: linear-gradient(to right, #2d9e75 50%, #2e2e2b 50%);
+  background: linear-gradient(
+    to right,
+    var(--pipeline-done) 50%,
+    var(--pipeline-pending-core) 50%
+  );
 }
 
 /* ── Toggle row ───────────────────────────────────────────────────────── */
@@ -134,7 +143,7 @@
 
 .pipeline-status-card__summary {
   font-size: 0.75rem;
-  color: #4a4a47;
+  color: var(--pipeline-summary);
 }
 
 .pipeline-status-card__toggle-btn {
@@ -142,7 +151,7 @@
   align-items: center;
   gap: 0.25rem;
   font-size: 0.75rem;
-  color: #4a4a47;
+  color: var(--pipeline-summary);
   background: none;
   border: none;
   cursor: pointer;
@@ -152,7 +161,7 @@
 }
 
 .pipeline-status-card__toggle:hover .pipeline-status-card__toggle-btn {
-  color: #888880;
+  color: var(--chat-text);
 }
 
 .pipeline-status-card__chevron {
@@ -186,7 +195,7 @@
   align-items: center;
   gap: 0.6875rem;
   padding: 0.5625rem 0;
-  border-top: 1px solid #222220;
+  border-top: 1px solid var(--pipeline-divider);
 }
 
 .pipeline-status-step:first-child {
@@ -204,29 +213,29 @@
 }
 
 .pipeline-status-step__icon--done {
-  background: rgba(45, 158, 117, 0.15);
+  background: var(--pipeline-done-soft);
 }
 
 .pipeline-status-step__icon--running {
-  background: rgba(59, 143, 232, 0.12);
+  background: var(--pipeline-running-soft);
 }
 
 .pipeline-status-step__icon--pending {
-  background: #252523;
+  background: var(--pipeline-pending-icon-bg);
 }
 
 .pipeline-status-step__icon--blocked {
-  background: rgba(234, 179, 8, 0.12);
+  background: var(--pipeline-blocked-soft);
 }
 
 .pipeline-status-step__icon--failed {
-  background: rgba(248, 113, 113, 0.12);
+  background: var(--pipeline-failed-soft);
 }
 
 .pipeline-status-step__check {
   width: 10px;
   height: 10px;
-  stroke: #2d9e75;
+  stroke: var(--pipeline-done);
   fill: none;
   stroke-width: 2.2;
   stroke-linecap: round;
@@ -236,7 +245,7 @@
 .pipeline-status-step__spinner {
   width: 11px;
   height: 11px;
-  stroke: #3b8fe8;
+  stroke: var(--pipeline-running);
   fill: none;
   stroke-width: 2;
   stroke-linecap: round;
@@ -253,7 +262,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #383835;
+  background: var(--pipeline-pending-dot);
 }
 
 .pipeline-status-step__name {
@@ -264,23 +273,23 @@
 }
 
 .pipeline-status-step__name--done {
-  color: #c8c8c0;
+  color: var(--pipeline-name-done);
 }
 
 .pipeline-status-step__name--running {
-  color: #a8c8f0;
+  color: var(--pipeline-name-running);
 }
 
 .pipeline-status-step__name--pending {
-  color: #4a4a47;
+  color: var(--pipeline-name-pending);
 }
 
 .pipeline-status-step__name--blocked {
-  color: #d4b86a;
+  color: var(--pipeline-name-blocked);
 }
 
 .pipeline-status-step__name--failed {
-  color: #f0a8a8;
+  color: var(--pipeline-name-failed);
 }
 
 .pipeline-status-step__tag {
@@ -293,23 +302,23 @@
 }
 
 .pipeline-status-step__tag--done {
-  color: #2d7a5c;
-  background: rgba(45, 158, 117, 0.1);
+  color: var(--pipeline-tag-done-text);
+  background: var(--pipeline-done-soft);
 }
 
 .pipeline-status-step__tag--running {
-  color: #3b8fe8;
-  background: rgba(59, 143, 232, 0.1);
+  color: var(--pipeline-tag-running-text);
+  background: var(--pipeline-running-soft);
 }
 
 .pipeline-status-step__tag--blocked {
-  color: #ca8a04;
-  background: rgba(234, 179, 8, 0.1);
+  color: var(--pipeline-name-blocked);
+  background: var(--pipeline-blocked-soft);
 }
 
 .pipeline-status-step__tag--failed {
-  color: #f87171;
-  background: rgba(248, 113, 113, 0.1);
+  color: var(--pipeline-name-failed);
+  background: var(--pipeline-failed-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {

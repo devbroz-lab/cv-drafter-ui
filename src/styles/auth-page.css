@@ -1,11 +1,11 @@
 /* ── Auth pages (login / signup) — jet-black premium ─────────────────────── */
 
 .auth-page {
-  --auth-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --auth-ease: var(--ease-out);
   position: relative;
   isolation: isolate;
   min-height: 100vh;
-  background: #000000;
+  background: var(--auth-bg);
   color: var(--chat-text);
 }
 
@@ -20,11 +20,23 @@
   transform: translateX(-50%);
   background: radial-gradient(
     ellipse 75% 100% at 50% -10%,
-    rgba(16, 163, 127, 0.08) 0%,
-    rgba(255, 255, 255, 0.02) 40%,
+    var(--auth-glow) 0%,
     transparent 70%
   );
   pointer-events: none;
+}
+
+.auth-page__theme {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 20;
+  width: auto;
+}
+
+.auth-page__theme .theme-toggle {
+  margin: 0;
+  width: auto;
 }
 
 .auth-page__shell {
@@ -61,13 +73,9 @@
 /* ── Panels (session-card overrides) ─────────────────────────────────────── */
 .auth-page__panel.session-card {
   border-radius: 1rem;
-  background:
-    radial-gradient(ellipse 80% 55% at 50% -25%, rgba(255, 255, 255, 0.045), transparent 58%),
-    linear-gradient(168deg, rgba(28, 28, 28, 0.96) 0%, rgba(12, 12, 12, 0.99) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 1px 2px rgba(0, 0, 0, 0.25),
-    0 16px 48px -20px rgba(0, 0, 0, 0.7);
+  background: var(--session-card-bg);
+  border: 1px solid var(--chat-border-subtle);
+  box-shadow: var(--shadow-card);
   transition:
     transform 0.45s var(--auth-ease),
     box-shadow 0.45s var(--auth-ease);
@@ -99,15 +107,15 @@
   display: inline-flex;
   align-items: center;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--chat-border);
+  background: var(--overlay-subtle);
   padding: 0.3125rem 0.75rem;
   font-size: 0.6875rem;
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(142, 142, 142, 0.95);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: var(--chat-muted);
+  box-shadow: var(--shadow-inset-highlight);
 }
 
 .auth-page__promo-title {
@@ -135,13 +143,13 @@
 
 .auth-page__feature {
   border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--chat-border-subtle);
+  background: var(--overlay-subtle);
   padding: 0.875rem 1rem;
   font-size: 0.8125rem;
   line-height: 1.45;
-  color: rgba(180, 180, 180, 0.95);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  color: var(--chat-muted);
+  box-shadow: var(--shadow-inset-highlight);
   transition:
     border-color 0.3s var(--auth-ease),
     background-color 0.3s var(--auth-ease),
@@ -149,8 +157,8 @@
 }
 
 .auth-page__feature:hover {
-  border-color: rgba(16, 163, 127, 0.12);
-  background: rgba(16, 163, 127, 0.04);
+  border-color: var(--color-accent-soft);
+  background: var(--color-accent-soft);
   transform: translateX(2px);
 }
 
@@ -201,14 +209,14 @@
 .auth-page__input {
   width: 100%;
   height: 2.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--chat-border);
   border-radius: 0.625rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-surface-raised);
   padding: 0 0.875rem;
   font-size: 0.8125rem;
   color: var(--chat-text);
   outline: none;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: var(--shadow-inset-highlight);
   transition:
     border-color 0.22s var(--auth-ease),
     box-shadow 0.22s var(--auth-ease),
@@ -216,18 +224,18 @@
 }
 
 .auth-page__input::placeholder {
-  color: rgba(82, 82, 82, 0.95);
+  color: var(--chat-muted);
 }
 
 .auth-page__input:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--color-border);
+  background: var(--color-surface-muted);
 }
 
 .auth-page__input:focus {
-  border-color: rgba(16, 163, 127, 0.45);
-  background: rgba(16, 163, 127, 0.04);
-  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.12);
+  border-color: var(--color-accent);
+  background: var(--color-surface-raised);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
 }
 
 .auth-page__form {

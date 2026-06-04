@@ -17,7 +17,8 @@ export function Button({
         variant === "secondary" &&
           "border border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text)] hover:border-[var(--color-accent)]/45 hover:bg-[var(--color-surface-muted)] active:scale-[0.98]",
         variant === "ghost" && "text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]",
-        variant === "danger" && "bg-red-900/70 text-white hover:bg-red-800",
+        variant === "danger" &&
+          "bg-[var(--color-danger)]/15 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/25",
         className,
       )}
       {...props}

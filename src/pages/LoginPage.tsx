@@ -8,6 +8,7 @@ import { useToast } from "../contexts/ToastContext";
 import { formatApiError } from "../lib/api";
 import { MicrosoftIcon } from "../components/auth/AuthBrandIcons";
 import { GoogleSsoButton } from "../components/auth/GoogleSsoButton";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { ALLOWLIST_DENIED_MESSAGE, isEmailAllowed, normalizeEmail } from "../lib/allowedEmails";
 import { APP_NAME } from "../lib/brand";
 import { Card } from "../components/ui";
@@ -101,6 +102,9 @@ export function LoginPage() {
 
   return (
     <div className="auth-page session-workspace-root">
+      <div className="auth-page__theme">
+        <ThemeToggle />
+      </div>
       <motion.div className="auth-page__shell" {...motionProps}>
         <div className="auth-page__layout">
           <Card tone="session" className="auth-page__panel auth-page__panel--promo">
@@ -197,7 +201,7 @@ export function LoginPage() {
                   clientId={googleClientId}
                   disabled={msBusy}
                   busy={googleBusy}
-                  onError={() => toast("Google sign-in failed.", "error")}
+                  onError={(message) => toast(message, "error")}
                   onCredential={async (credential) => {
                     setGoogleBusy(true);
                     try {

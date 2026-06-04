@@ -6,7 +6,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { SessionOutputInsights } from "../components/session/SessionAIReview";
 import { SessionLivePipelineStrip } from "../components/session/SessionPipeline";
 import { SessionPipelineTimeline } from "../components/session/SessionPipelineFlow";
-import { SkippedEditsPanel } from "../components/session/SkippedEditsPanel";
+import { FieldEditOutcomePanel } from "../components/session/FieldEditOutcomePanel";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchMeterBalance, formatCredits, parseCredits } from "../lib/metering";
 import { useToast } from "../contexts/ToastContext";
@@ -24,6 +24,7 @@ import { recentSessionLabel, upsertRecentSession } from "../lib/recentSessions";
 import { livePipelineStageLabel, sessionStatusLabel } from "../lib/sessionStatusLabels";
 import type {
   FieldEditItem,
+  FieldEditOutcomeState,
   FieldEditResponse,
   SessionStatus,
 } from "../lib/types";
@@ -323,9 +324,7 @@ export function SessionWorkspacePage() {
   // ── Field editor / batch state ─────────────────────────────────────────────
 
   const [pendingEdits, setPendingEdits] = useState<FieldEditItem[]>([]);
-  // Stores the result of the last POST /field-edit call when skipped > 0,
-  // so we can show the skipped-edits decision UI.
-  const [lastEditResult, setLastEditResult] = useState<FieldEditResponse | null>(null);
+  const [editOutcome, setEditOutcome] = useState<FieldEditOutcomeState | null>(null);
 
   const [cp1Collapsed, setCp1Collapsed] = useState(false);
   const [cp1SelectionLabel, setCp1SelectionLabel] = useState<string | null>(null);
@@ -334,6 +333,7 @@ export function SessionWorkspacePage() {
   useEffect(() => {
     setCp1Collapsed(false);
     setCp1SelectionLabel(null);
+    setEditOutcome(null);
   }, [sessionId]);
 
   useEffect(() => {
@@ -345,26 +345,24 @@ export function SessionWorkspacePage() {
 
   const fieldEditMut = useMutation({
     mutationFn: (edits: FieldEditItem[]) => submitFieldEdits(accessToken!, sessionId, edits),
-    onSuccess: (data: FieldEditResponse) => {
+    onSuccess: (data: FieldEditResponse, submitted: FieldEditItem[]) => {
       void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
       void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
       void qc.invalidateQueries({ queryKey: ["output", sessionId] });
       void qc.invalidateQueries({ queryKey: ["metering", "balance"] });
       setPendingEdits([]);
+      setShowViewer(false);
+      setEditOutcome({ result: data, submitted });
 
       const skipped = data.skipped ?? [];
       const applied = data.applied ?? [];
 
       if (skipped.length === 0) {
-        setShowViewer(false);
-        setLastEditResult(null);
         toast(
-          `${applied.length} edit${applied.length !== 1 ? "s" : ""} saved. ` +
-            "The Word file updates after rendering finishes (status returns to completed); open Edit fields or Download again then.",
+          `${applied.length} edit${applied.length !== 1 ? "s" : ""} saved — see the summary below.`,
         );
       } else {
-        setLastEditResult(data);
-        toast(`${applied.length} applied, ${skipped.length} skipped — see details below.`, "error");
+        toast(`${applied.length} applied, ${skipped.length} skipped — see the summary below.`, "error");
       }
     },
     onError: (e) => {
@@ -374,21 +372,19 @@ export function SessionWorkspacePage() {
   });
 
   // After partial skips: dismiss notice on completed (render already ran or will complete).
-  const handleApproveAnyway = useCallback(() => {
-    setLastEditResult(null);
-    setShowViewer(false);
+  const handleDismissEditOutcome = useCallback(() => {
+    setEditOutcome(null);
   }, []);
 
-  // "Cancel & re-edit" — re-open field editor; submit another /field-edit batch.
-  const handleCancelReEdit = useCallback(() => {
-    const applied = lastEditResult?.applied.length ?? 0;
-    const skippedCount = lastEditResult?.skipped.length ?? 0;
-    setLastEditResult(null);
+  const handleReEditSkipped = useCallback(() => {
+    const applied = editOutcome?.result.applied.length ?? 0;
+    const skippedCount = editOutcome?.result.skipped.length ?? 0;
+    setEditOutcome(null);
     void openViewer("field_editor");
     toast(
-      `${applied} edits were already applied. Re-editing for the ${skippedCount} skipped field(s).`,
+      `${applied} edit${applied !== 1 ? "s" : ""} already applied. Refining the ${skippedCount} skipped field${skippedCount !== 1 ? "s" : ""}.`,
     );
-  }, [lastEditResult, openViewer, toast]);
+  }, [editOutcome, openViewer, toast]);
 
   // ── Misc ───────────────────────────────────────────────────────────────────
 
@@ -590,12 +586,12 @@ export function SessionWorkspacePage() {
             </motion.div>
           )}
 
-          {lastEditResult && lastEditResult.skipped.length > 0 && (
-            <SkippedEditsPanel
-              result={lastEditResult}
+          {editOutcome && (
+            <FieldEditOutcomePanel
+              outcome={editOutcome}
               canReEdit={st === "completed"}
-              onApproveAnyway={handleApproveAnyway}
-              onCancelReEdit={handleCancelReEdit}
+              onDismiss={handleDismissEditOutcome}
+              onReEditSkipped={handleReEditSkipped}
             />
           )}
 
@@ -616,7 +612,7 @@ export function SessionWorkspacePage() {
                           Your formatted CV is complete
                         </h2>
                         <p className="session-card-body">
-                          Download a print-ready Word export or edit fields inline before your next pass.
+                          Download a print-ready Word export or refine content in the document before your next pass.
                         </p>
                       </div>
                       <div className="session-icon-badge sm:mt-1">
@@ -646,16 +642,33 @@ export function SessionWorkspacePage() {
                       </Button>
                       <Button
                         type="button"
-                        variant="secondary"
-                        className="session-btn-secondary"
+                        className="session-btn-refine"
                         disabled={viewerLoading || (showViewer && viewerMode === "field_editor")}
                         onClick={() => void openViewer("field_editor")}
                       >
-                        {viewerLoading && viewerMode === "field_editor"
-                          ? "Loading…"
-                          : showViewer && viewerMode === "field_editor"
-                          ? "Editor open →"
-                          : "Edit fields"}
+                        {viewerLoading && viewerMode === "field_editor" ? (
+                          "Opening…"
+                        ) : showViewer && viewerMode === "field_editor" ? (
+                          "Refine open →"
+                        ) : (
+                          <>
+                            <svg
+                              viewBox="0 0 24 24"
+                              className="session-btn-refine__icon"
+                              aria-hidden
+                            >
+                              <path
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"
+                              />
+                            </svg>
+                            Refine in document
+                          </>
+                        )}
                       </Button>
                     </div>
 
@@ -683,7 +696,7 @@ export function SessionWorkspacePage() {
                           </div>
                         )}
                         {pendingEdits.length > 0 && pendingEdits.some((e) => !e.instruction.trim()) && (
-                          <p className="text-xs text-amber-200/90">
+                          <p className="text-xs text-[var(--color-warn)]">
                             Each queued edit needs an instruction before submit.
                           </p>
                         )}

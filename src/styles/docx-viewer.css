@@ -1,0 +1,313 @@
+/* DocxViewer / Field workspace — theme-aware chrome */
+
+.docx-viewer__header {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--editor-chrome-border);
+  background: var(--editor-chrome-header-bg);
+  padding: 1rem 1.25rem;
+}
+
+.docx-viewer__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+}
+
+.docx-viewer__badge {
+  border-radius: 9999px;
+  border: 1px solid var(--editor-badge-border);
+  background: var(--editor-badge-bg);
+  padding: 0.125rem 0.625rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.docx-viewer__lead {
+  max-width: 36rem;
+  font-size: 0.6875rem;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+.docx-viewer__close {
+  display: flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  border: 1px solid var(--editor-chrome-border);
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.docx-viewer__close:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.docx-viewer__rail {
+  display: flex;
+  max-height: 36vh;
+  min-height: 0;
+  width: 100%;
+  flex-shrink: 0;
+  flex-direction: column;
+  border-top: 1px solid var(--editor-chrome-border);
+  background: var(--editor-chrome-rail-bg);
+}
+
+@media (min-width: 768px) {
+  .docx-viewer__rail {
+    max-height: none;
+    width: 15.5rem;
+    border-top: none;
+    border-left: 1px solid var(--editor-chrome-border);
+  }
+}
+
+@media (min-width: 1024px) {
+  .docx-viewer__rail {
+    width: 16.5rem;
+  }
+}
+
+.docx-viewer__footer {
+  position: relative;
+  z-index: 20;
+  flex-shrink: 0;
+  border-top: 1px solid var(--editor-chrome-border);
+  background: var(--editor-chrome-footer-bg);
+  padding: 1rem 1.25rem;
+}
+
+.docx-viewer__footer-hint {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+
+.docx-viewer__btn-secondary {
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  padding: 0.625rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.docx-viewer__btn-secondary:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.docx-viewer__btn-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.docx-viewer__btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0.75rem;
+  background: var(--btn-primary-bg);
+  padding: 0.625rem 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--btn-primary-text);
+  box-shadow: var(--shadow-sm);
+  transition:
+    background 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+
+.docx-viewer__btn-primary:hover:not(:disabled) {
+  background: var(--btn-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.docx-viewer__btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.docx-viewer__empty {
+  margin-top: 1.5rem;
+  border-radius: 1rem;
+  border: 1px dashed var(--color-border);
+  background: var(--color-surface-raised);
+  padding: 2.5rem 1.25rem;
+  text-align: center;
+  transition: border-color 0.2s ease;
+}
+
+.docx-viewer__empty:hover {
+  border-color: var(--color-accent);
+}
+
+.docx-viewer__edit-card,
+.docx-viewer__ref-card {
+  border-radius: 1rem;
+  border: 1px solid var(--editor-chrome-border);
+  background: var(--color-surface-raised);
+  padding: 1rem;
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.docx-viewer__edit-card:hover,
+.docx-viewer__ref-card:hover {
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.docx-viewer__chip-mapped {
+  border-radius: 9999px;
+  background: var(--editor-chip-mapped-bg);
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--editor-chip-mapped-text);
+}
+
+.docx-viewer__chip-verify {
+  border-radius: 9999px;
+  background: var(--editor-chip-verify-bg);
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--editor-chip-verify-text);
+}
+
+.docx-viewer__remove {
+  display: flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  color: var(--color-text-muted);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.docx-viewer__remove:hover {
+  background: var(--overlay-hover);
+  color: var(--color-danger);
+}
+
+.docx-viewer__paper {
+  width: 100%;
+  max-width: none;
+  border-radius: 1.35rem;
+  padding: 1.25rem;
+  background: var(--editor-paper-bg);
+  box-shadow: var(--editor-paper-shadow);
+}
+
+@media (min-width: 768px) {
+  .docx-viewer__paper {
+    padding: 2rem;
+  }
+}
+
+.docx-viewer__table-wrap {
+  margin: 1.25rem 0;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgba(42, 40, 37, 0.08);
+  background: rgba(255, 255, 255, 0.65);
+  padding: 0.375rem;
+  box-shadow: var(--shadow-xs);
+}
+
+[data-theme="dark"] .docx-viewer__table-wrap {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.docx-viewer__empty-cell {
+  font-style: italic;
+  color: var(--color-text-muted);
+}
+
+.docx-viewer__error {
+  margin-inline: auto;
+  max-width: 32rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(196, 92, 92, 0.28);
+  background: rgba(196, 92, 92, 0.08);
+  padding: 1rem 1.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--color-danger);
+}
+
+[data-theme="dark"] .docx-viewer__error {
+  background: rgba(127, 29, 29, 0.35);
+  color: #fca5a5;
+}
+
+.docx-viewer__loc-badge {
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 500;
+}
+
+.docx-viewer__loc-badge--para {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.docx-viewer__loc-badge--table {
+  background: rgba(139, 92, 246, 0.12);
+  color: #6d28d9;
+}
+
+[data-theme="dark"] .docx-viewer__loc-badge--para {
+  background: rgba(30, 58, 138, 0.5);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .docx-viewer__loc-badge--table {
+  background: rgba(88, 28, 135, 0.45);
+  color: #d8b4fe;
+}
+
+[data-theme="dark"] .editor-side-panel__dock {
+  box-shadow: -48px 0 120px -24px rgba(0, 0, 0, 0.75);
+}

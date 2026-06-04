@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ALLOWLIST_DENIED_MESSAGE, isEmailAllowed, normalizeEmail } from "../lib/allowedEmails";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { Card } from "../components/ui";
 
 const fadeUp = {
@@ -53,6 +54,9 @@ export function SignupPage() {
 
   return (
     <div className="auth-page auth-page--signup session-workspace-root">
+      <div className="auth-page__theme">
+        <ThemeToggle />
+      </div>
       <motion.div className="auth-page__shell" {...motionProps}>
         <div className="auth-page__layout auth-page__layout--narrow">
           <Card tone="session" className="auth-page__panel auth-page__panel--form">
