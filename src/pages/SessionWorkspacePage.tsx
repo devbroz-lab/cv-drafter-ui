@@ -14,10 +14,12 @@ import {
   ApiError,
   approveCheckpoint,
   formatApiError,
+  isAutoApproveTerminalError,
   getManifest,
   getOutput,
   getOutputDownloadUrl,
   getSessionStatus,
+  startSession,
   submitFieldEdits,
 } from "../lib/api";
 import { recentSessionLabel, upsertRecentSession } from "../lib/recentSessions";
@@ -116,6 +118,29 @@ export function SessionWorkspacePage() {
 
   const st = statusQuery.data?.status;
 
+  // Recover when New Session navigated here before POST /start finished (or failed).
+  useEffect(() => {
+    if (!accessToken || !sessionId || st !== "queued") return;
+    if (!statusQuery.data?.source_storage_key) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        await startSession(accessToken, sessionId);
+        if (!cancelled) {
+          void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
+          void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
+        }
+      } catch {
+        /* status poll will surface queued vs processing */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, qc, sessionId, st, statusQuery.data?.source_storage_key]);
+
   const manifestQuery = useQuery({
     queryKey: ["manifest", sessionId, accessToken],
     queryFn: () => getManifest(accessToken!, sessionId),
@@ -186,6 +211,13 @@ export function SessionWorkspacePage() {
           void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
           return;
         } catch (e) {
+          if (isAutoApproveTerminalError(e)) {
+            void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
+            if (e instanceof ApiError && e.status === 401) {
+              toast("Session expired. Please sign in again.", "error");
+            }
+            return;
+          }
           lastErr = formatApiError(e);
           await wait(2000);
         }
@@ -220,6 +252,13 @@ export function SessionWorkspacePage() {
           void qc.invalidateQueries({ queryKey: ["output", sessionId] });
           return;
         } catch (e) {
+          if (isAutoApproveTerminalError(e)) {
+            void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
+            if (e instanceof ApiError && e.status === 401) {
+              toast("Session expired. Please sign in again.", "error");
+            }
+            return;
+          }
           lastErr = formatApiError(e);
           await wait(2000);
         }

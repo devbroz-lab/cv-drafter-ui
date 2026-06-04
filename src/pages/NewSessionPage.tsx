@@ -206,7 +206,6 @@ export function NewSessionPage() {
 
       await uploadSource(accessToken, session_id, cvFile);
       await uploadTor(accessToken, session_id, torFile);
-      await startSession(accessToken, session_id);
 
       upsertRecentSession({
         id: session_id,
@@ -217,8 +216,18 @@ export function NewSessionPage() {
       void queryClient.invalidateQueries({ queryKey: ["sessions", "list"] });
       void queryClient.invalidateQueries({ queryKey: ["metering", "balance"] });
 
-      toast("Session started. Pipeline is running.");
+      // Open workspace immediately so a slow/hung POST /start does not trap the user on "Starting…"
       navigate(`/sessions/${session_id}`, { replace: true, state: { sourceFilename } });
+
+      try {
+        await startSession(accessToken, session_id);
+        toast("Session started. Pipeline is running.");
+      } catch (startErr: unknown) {
+        toast(
+          `Files uploaded, but start did not confirm: ${formatApiError(startErr)}. The workspace will retry.`,
+          "error",
+        );
+      }
     } catch (err: unknown) {
       toast(formatApiError(err), "error");
     } finally {

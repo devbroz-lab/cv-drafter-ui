@@ -146,7 +146,8 @@ export function TorPoolPicker({
     queryKey: ["torPools", sessionId, accessToken],
     queryFn: () => getTorPools(accessToken!, sessionId),
     enabled: !!accessToken && !!sessionId,
-    retry: 2,
+    retry: 5,
+    refetchInterval: (q) => (q.state.error ? 3000 : false),
   });
 
   // Auto-select when exactly one pool

@@ -289,6 +289,11 @@ export async function submitFieldEdits(
   return res.json() as Promise<FieldEditResponse>;
 }
 
+/** Auto-approve should not retry after auth failure or status mismatch (already advanced). */
+export function isAutoApproveTerminalError(e: unknown): boolean {
+  return e instanceof ApiError && (e.status === 401 || e.status === 409);
+}
+
 export function formatApiError(e: unknown): string {
   if (e instanceof ApiError) {
     if (isInsufficientCreditsDetail(e.detail)) {
