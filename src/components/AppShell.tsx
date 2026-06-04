@@ -5,6 +5,7 @@ import clsx from "clsx";
 
 import { useAuth } from "../contexts/AuthContext";
 import { APP_NAME } from "../lib/brand";
+import { CreditBalance } from "./CreditBalance";
 import { SidebarSessionList } from "./SidebarSessionList";
 
 const SIDEBAR_STORAGE_KEY = "cv-drafter-sidebar-collapsed";
@@ -130,6 +131,8 @@ export function AppShell() {
             </svg>
           </button>
         </div>
+
+        <CreditBalance collapsed={sidebarCollapsed} className="app-shell-credit-balance" />
 
         <nav className="app-shell-sidebar-nav">
           <NavLink to="/" end className={navClass} title="Home">

@@ -418,6 +418,8 @@ interface DocxViewerBaseProps {
   onSubmitEdits?: () => void;
   submitEditsDisabled?: boolean;
   submitEditsBusy?: boolean;
+  /** Shown in field-editor footer, e.g. "0.2 credits per apply". */
+  revisionCostLabel?: string;
   /**
    * Passed in field_editor mode so the viewer can resolve tasks_assigned
    * (WB Table 3 cell 0) paths via resolveTasksAssignedPath().
@@ -466,6 +468,7 @@ export function DocxViewer(props: DocxViewerProps) {
     onSubmitEdits,
     submitEditsDisabled = true,
     submitEditsBusy = false,
+    revisionCostLabel,
   } = props;
   const mode = props.mode ?? "reference";
 
@@ -981,8 +984,12 @@ export function DocxViewer(props: DocxViewerProps) {
               <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-[11px] text-[var(--color-text-muted)]">
                   {fieldEdits.length === 0
-                    ? "Queue edits on the canvas, then apply to run the field editor."
-                    : `${fieldEdits.length} edit${fieldEdits.length === 1 ? "" : "s"} ready — verify instructions before applying.`}
+                    ? revisionCostLabel
+                      ? `Queue edits on the canvas, then apply (${revisionCostLabel}).`
+                      : "Queue edits on the canvas, then apply to run the field editor."
+                    : revisionCostLabel
+                      ? `${fieldEdits.length} edit${fieldEdits.length === 1 ? "" : "s"} ready — applying uses ${revisionCostLabel}.`
+                      : `${fieldEdits.length} edit${fieldEdits.length === 1 ? "" : "s"} ready — verify instructions before applying.`}
                 </p>
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <button
