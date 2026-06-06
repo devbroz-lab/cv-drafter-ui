@@ -13,7 +13,7 @@ export function getStoredTheme(): Theme | null {
 }
 
 export function getPreferredTheme(): Theme {
-  return getStoredTheme() ?? "dark";
+  return getStoredTheme() ?? "light";
 }
 
 export function applyTheme(theme: Theme): void {

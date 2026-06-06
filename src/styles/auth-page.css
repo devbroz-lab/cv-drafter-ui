@@ -103,23 +103,29 @@
   }
 }
 
-.auth-page__badge {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 9999px;
-  border: 1px solid var(--chat-border);
-  background: var(--overlay-subtle);
-  padding: 0.3125rem 0.75rem;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--chat-muted);
-  box-shadow: var(--shadow-inset-highlight);
+.auth-page__brand {
+  display: block;
+}
+
+.auth-page__form-brand {
+  display: block;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--chat-border-subtle);
+}
+
+@media (min-width: 1024px) {
+  .auth-page__form-brand:not(.auth-page__form-brand--always) {
+    display: none;
+  }
+}
+
+.auth-page__form-brand--always {
+  display: block;
 }
 
 .auth-page__promo-title {
-  margin-top: 1.5rem;
+  margin-top: 2rem;
   font-size: 2rem;
   font-weight: 500;
   letter-spacing: -0.03em;

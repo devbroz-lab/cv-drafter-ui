@@ -8,6 +8,7 @@ import { listSessions } from "../lib/api";
 import { upsertRecentSession } from "../lib/recentSessions";
 import { sessionStatusLabel } from "../lib/sessionStatusLabels";
 import type { SessionSummary } from "../lib/types";
+import { BrandWordmark } from "../components/BrandWordmark";
 import { Card } from "../components/ui";
 
 const fadeUp = {
@@ -85,7 +86,9 @@ export function HomePage() {
     <div className="session-workspace-root home-page w-full min-w-0 pb-14">
       <motion.header className="home-page__hero" {...motionProps}>
         <p className="home-page__kicker">Workspace</p>
-        <h1 className="home-page__title">Home</h1>
+        <h1 className="home-page__title">
+          <BrandWordmark size="lg" />
+        </h1>
         <p className="home-page__lead">Continue a recent session or start a new reformat.</p>
         <span className="home-page__identity">
           Signed in as <span className="home-page__email">{user?.email ?? user?.id}</span>

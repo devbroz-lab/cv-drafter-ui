@@ -6,9 +6,8 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { SessionOutputInsights } from "../components/session/SessionAIReview";
 import { SessionLivePipelineStrip } from "../components/session/SessionPipeline";
 import { SessionPipelineTimeline } from "../components/session/SessionPipelineFlow";
-import { FieldEditOutcomePanel } from "../components/session/FieldEditOutcomePanel";
 import { useAuth } from "../contexts/AuthContext";
-import { fetchMeterBalance, formatCredits, parseCredits } from "../lib/metering";
+import { fetchMeterBalance, parseCredits } from "../lib/metering";
 import { useToast } from "../contexts/ToastContext";
 import {
   ApiError,
@@ -625,15 +624,6 @@ export function SessionWorkspacePage() {
             </motion.div>
           )}
 
-          {editOutcome && (
-            <FieldEditOutcomePanel
-              outcome={editOutcome}
-              canReEdit={st === "completed"}
-              onDismiss={handleDismissEditOutcome}
-              onReEditSkipped={handleReEditSkipped}
-            />
-          )}
-
           {st === "completed" && (
             <>
               {outputQuery.data && (
@@ -668,7 +658,13 @@ export function SessionWorkspacePage() {
                       </div>
                     </div>
 
-                    <SessionOutputInsights data={outputQuery.data} />
+                    <SessionOutputInsights
+                      data={outputQuery.data}
+                      editOutcome={editOutcome}
+                      canReEdit={st === "completed"}
+                      onDismissEditOutcome={handleDismissEditOutcome}
+                      onReEditSkipped={handleReEditSkipped}
+                    />
 
                     <div className="mt-9 flex flex-wrap gap-3 sm:mt-10">
                       <Button
@@ -705,7 +701,7 @@ export function SessionWorkspacePage() {
                                 d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"
                               />
                             </svg>
-                            Refine in document
+                            Refine in doc
                           </>
                         )}
                       </Button>
@@ -769,6 +765,7 @@ export function SessionWorkspacePage() {
               </Card>
             </motion.div>
           )}
+
         </motion.div>
       </motion.div>
     </div>
@@ -800,11 +797,6 @@ export function SessionWorkspacePage() {
               pendingEdits.some((e) => !e.instruction.trim()) ||
               fieldEditMut.isPending ||
               (balanceQuery.isSuccess && !canAffordRevision)
-            }
-            revisionCostLabel={
-              balanceQuery.isSuccess
-                ? `${formatCredits(revisionCost)} credits per apply`
-                : undefined
             }
             submitEditsBusy={viewerMode === "field_editor" && fieldEditMut.isPending}
             onEditsChange={viewerMode === "field_editor" ? setPendingEdits : (undefined as never)}

@@ -14,11 +14,11 @@
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
-html[data-theme="light"] {
-  color-scheme: light;
+html[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 /* Smooth theme switch — surfaces & typography only (not layout) */
@@ -44,7 +44,7 @@ html.theme-transition *::after {
   }
 }
 
-/* ── Dark theme (default) ─────────────────────────────────────────────────── */
+/* ── Dark theme ───────────────────────────────────────────────────────────── */
 :root,
 [data-theme="dark"] {
   --color-bg: #212121;
@@ -229,16 +229,16 @@ html.theme-transition *::after {
   );
 }
 
-/* ── Light theme — warm off-white / stone ─────────────────────────────────── */
+/* ── Light theme — warm stone / off-white (not bright white) ─────────────── */
 [data-theme="light"] {
-  --color-bg: #f7f6f3;
-  --color-surface: #faf9f7;
-  --color-surface-raised: #fdfcfa;
-  --color-surface-muted: #f0efec;
-  --color-border: #e8e6e1;
-  --color-border-subtle: rgba(55, 52, 48, 0.08);
+  --color-bg: #ebe7e0;
+  --color-surface: #f0ebe4;
+  --color-surface-raised: #f4efe8;
+  --color-surface-muted: #e3ded6;
+  --color-border: #ccc6bc;
+  --color-border-subtle: rgba(55, 52, 48, 0.1);
   --color-text: #2a2825;
-  --color-text-muted: #6e6a63;
+  --color-text-muted: #6b665e;
   --color-accent: #c4694d;
   --color-accent-hover: #d97757;
   --color-accent-soft: rgba(196, 105, 77, 0.12);
@@ -247,51 +247,51 @@ html.theme-transition *::after {
   --color-warn: #b8860b;
 
   --btn-primary-bg: linear-gradient(180deg, #3d3a36 0%, #2a2825 100%);
-  --btn-primary-text: #faf9f7;
+  --btn-primary-text: #f4efe8;
   --btn-primary-hover: linear-gradient(180deg, #4a4641 0%, #35322e 100%);
-  --toggle-track: #e8e6e1;
-  --toggle-thumb: #fdfcfa;
+  --toggle-track: #d4cec4;
+  --toggle-thumb: #f4efe8;
   --toggle-thumb-active: #c4694d;
 
-  --shadow-xs: 0 1px 2px rgba(42, 40, 37, 0.04);
-  --shadow-sm: 0 2px 8px rgba(42, 40, 37, 0.06);
-  --shadow-md: 0 12px 32px rgba(42, 40, 37, 0.08);
-  --shadow-card: 0 1px 2px rgba(42, 40, 37, 0.04), 0 8px 24px -4px rgba(42, 40, 37, 0.1);
-  --shadow-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --shadow-xs: 0 1px 2px rgba(42, 40, 37, 0.05);
+  --shadow-sm: 0 2px 8px rgba(42, 40, 37, 0.07);
+  --shadow-md: 0 12px 32px rgba(42, 40, 37, 0.09);
+  --shadow-card: 0 1px 2px rgba(42, 40, 37, 0.05), 0 8px 24px -4px rgba(42, 40, 37, 0.11);
+  --shadow-inset-highlight: inset 0 1px 0 rgba(244, 239, 232, 0.85);
 
   --overlay-subtle: rgba(42, 40, 37, 0.03);
   --overlay-hover: rgba(42, 40, 37, 0.05);
   --overlay-border: rgba(42, 40, 37, 0.1);
 
-  --auth-bg: #f5f4f1;
+  --auth-bg: #e8e4dd;
   --auth-glow: rgba(196, 105, 77, 0.08);
 
   --editor-panel-bg: linear-gradient(
     165deg,
-    #fdfcfa 0%,
-    #f7f6f3 48%,
-    #f0efec 100%
+    #f4efe8 0%,
+    #ebe7e0 48%,
+    #e3ded6 100%
   );
   --editor-desk-bg: radial-gradient(
       ellipse 100% 60% at 50% -15%,
       rgba(196, 105, 77, 0.06),
       transparent 55%
     ),
-    linear-gradient(180deg, #f0efec 0%, #f7f6f3 50%, #faf9f7 100%);
+    linear-gradient(180deg, #e3ded6 0%, #ebe7e0 50%, #f0ebe4 100%);
   --editor-paper-shadow: 0 1px 2px rgba(42, 40, 37, 0.06),
     0 16px 40px -8px rgba(42, 40, 37, 0.12), 0 0 0 1px rgba(42, 40, 37, 0.06);
-  --editor-popover-bg: linear-gradient(165deg, #fdfcfa 0%, #f7f6f3 45%, #f0efec 100%);
-  --editor-input-bg: #fdfcfa;
-  --editor-input-border: rgba(42, 40, 37, 0.12);
+  --editor-popover-bg: linear-gradient(165deg, #f4efe8 0%, #ebe7e0 45%, #e3ded6 100%);
+  --editor-input-bg: #f4efe8;
+  --editor-input-border: rgba(42, 40, 37, 0.14);
   --editor-input-text: #2a2825;
-  --editor-input-placeholder: #9a958d;
-  --editor-chrome-bg: rgba(253, 252, 250, 0.92);
-  --editor-chrome-border: rgba(42, 40, 37, 0.08);
-  --editor-chrome-header-bg: rgba(253, 252, 250, 0.96);
-  --editor-chrome-footer-bg: #f5f4f1;
-  --editor-chrome-rail-bg: #faf9f7;
+  --editor-input-placeholder: #8f8a82;
+  --editor-chrome-bg: rgba(244, 239, 232, 0.94);
+  --editor-chrome-border: rgba(42, 40, 37, 0.1);
+  --editor-chrome-header-bg: rgba(244, 239, 232, 0.97);
+  --editor-chrome-footer-bg: #e8e4dd;
+  --editor-chrome-rail-bg: #f0ebe4;
   --editor-backdrop: rgba(42, 40, 37, 0.32);
-  --editor-paper-bg: linear-gradient(180deg, #fdfcfa 0%, #f7f6f3 55%, #f0efec 100%);
+  --editor-paper-bg: linear-gradient(180deg, #f8f4ee 0%, #f0ebe4 55%, #e8e4dd 100%);
   --editor-badge-bg: var(--color-accent-soft);
   --editor-badge-border: rgba(196, 105, 77, 0.22);
   --editor-chip-mapped-bg: rgba(61, 143, 110, 0.12);
@@ -304,23 +304,23 @@ html.theme-transition *::after {
   --session-glow-warn: rgba(184, 134, 11, 0.15);
   --session-glow-danger: rgba(196, 92, 92, 0.15);
 
-  --chat-bg: #f7f6f3;
-  --chat-surface: #faf9f7;
-  --chat-surface-raised: #fdfcfa;
-  --chat-surface-hover: #efeeeb;
-  --chat-border: rgba(55, 52, 48, 0.1);
-  --chat-border-subtle: rgba(55, 52, 48, 0.06);
+  --chat-bg: #ebe7e0;
+  --chat-surface: #f0ebe4;
+  --chat-surface-raised: #f4efe8;
+  --chat-surface-hover: #dbd7cf;
+  --chat-border: rgba(55, 52, 48, 0.12);
+  --chat-border-subtle: rgba(55, 52, 48, 0.08);
   --chat-text: #2a2825;
-  --chat-muted: #6e6a63;
+  --chat-muted: #6b665e;
   --chat-accent: #c4694d;
   --chat-accent-soft: rgba(196, 105, 77, 0.12);
 
-  --session-card-bg: linear-gradient(168deg, #fdfcfa 0%, #f7f6f3 52%, #f0efec 100%);
+  --session-card-bg: linear-gradient(168deg, #f4efe8 0%, #ebe7e0 52%, #e3ded6 100%);
   --session-card-border-gradient: linear-gradient(
     145deg,
-    rgba(255, 255, 255, 0.9) 0%,
-    rgba(42, 40, 37, 0.06) 40%,
-    rgba(42, 40, 37, 0.04) 100%
+    rgba(244, 239, 232, 0.95) 0%,
+    rgba(42, 40, 37, 0.08) 40%,
+    rgba(42, 40, 37, 0.05) 100%
   );
   --session-card-crown: linear-gradient(90deg, transparent, rgba(42, 40, 37, 0.08), transparent);
   --session-btn-primary-bg: var(--btn-primary-bg);
@@ -329,11 +329,11 @@ html.theme-transition *::after {
   --scrollbar-thumb-hover: rgba(42, 40, 37, 0.28);
   --scrollbar-accent: rgba(196, 105, 77, 0.35);
 
-  --shell-session-bg: #f5f4f1;
-  --shell-session-surface: #efeeeb;
-  --shell-session-border: rgba(55, 52, 48, 0.1);
+  --shell-session-bg: #e8e4dd;
+  --shell-session-surface: #dbd7cf;
+  --shell-session-border: rgba(55, 52, 48, 0.12);
   --shell-session-text: #2a2825;
-  --shell-session-muted: #6e6a63;
+  --shell-session-muted: #6b665e;
 
   --session-progress-fill: linear-gradient(
     90deg,
@@ -342,19 +342,19 @@ html.theme-transition *::after {
     rgba(42, 40, 37, 0.18) 100%
   );
 
-  --pipeline-label: #9a958d;
-  --pipeline-summary: #6e6a63;
-  --pipeline-count-bg: #efeeeb;
+  --pipeline-label: #8f8a82;
+  --pipeline-summary: #6b665e;
+  --pipeline-count-bg: #dbd7cf;
   --pipeline-count-border: var(--chat-border);
-  --pipeline-count-text: #6e6a63;
+  --pipeline-count-text: #6b665e;
   --pipeline-title: var(--chat-text);
   --pipeline-divider: var(--chat-border-subtle);
   --pipeline-done: var(--color-success);
   --pipeline-running: var(--color-accent);
-  --pipeline-pending-core: #e8e6e1;
-  --pipeline-pending-ring: #d4d2cc;
-  --pipeline-pending-icon-bg: #f0efec;
-  --pipeline-pending-dot: #b8b4ac;
+  --pipeline-pending-core: #ccc6bc;
+  --pipeline-pending-ring: #b8b2a8;
+  --pipeline-pending-icon-bg: #e3ded6;
+  --pipeline-pending-dot: #a8a299;
   --pipeline-name-done: var(--chat-text);
   --pipeline-name-running: #9a5c44;
   --pipeline-name-pending: var(--chat-muted);
@@ -384,7 +384,7 @@ html.theme-transition *::after {
   --insight-chip-human-text: #8a6914;
   --insight-field-chip-bg: rgba(42, 40, 37, 0.06);
 
-  --home-session-bg: linear-gradient(168deg, #fdfcfa 0%, #f7f6f3 52%, #f0efec 100%);
+  --home-session-bg: linear-gradient(168deg, #f4efe8 0%, #ebe7e0 52%, #e3ded6 100%);
   --home-session-shadow: var(--shadow-card);
   --home-session-hover-shadow: var(--shadow-md), 0 0 0 1px rgba(196, 105, 77, 0.12);
   --home-pill-bg: var(--chat-surface-hover);
@@ -401,7 +401,7 @@ html.theme-transition *::after {
       rgba(196, 105, 77, 0.08),
       transparent 55%
     ),
-    linear-gradient(168deg, #fdfcfa 0%, #f7f6f3 48%, #f0efec 100%);
+    linear-gradient(168deg, #f4efe8 0%, #ebe7e0 48%, #e3ded6 100%);
 }
 
 [data-theme="light"] .session-card--success {
@@ -410,7 +410,7 @@ html.theme-transition *::after {
       rgba(61, 143, 110, 0.1),
       transparent 50%
     ),
-    linear-gradient(168deg, #f5faf8 0%, #f7f6f3 42%, #f0efec 100%);
+    linear-gradient(168deg, #eef4f0 0%, #ebe7e0 42%, #e3ded6 100%);
 }
 
 [data-theme="light"] .session-composer-surface::after {

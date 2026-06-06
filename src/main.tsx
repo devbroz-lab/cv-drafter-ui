@@ -10,6 +10,7 @@ import { queryClient } from "./lib/queryClient";
 import { initTheme } from "./lib/theme";
 
 import "./styles/theme-tokens.css";
+import "./styles/typography.css";
 import "./styles/globals.css";
 import "./styles/pipeline-status.css";
 import "./styles/session-insights.css";

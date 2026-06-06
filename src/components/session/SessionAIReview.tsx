@@ -2,7 +2,13 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useState } from "react";
 
 import { formatFieldPath } from "../../lib/fieldEditDisplay";
-import type { HighSeverityIssue, LowSeverityIssue, OutputResponse } from "../../lib/types";
+import type {
+  FieldEditOutcomeState,
+  HighSeverityIssue,
+  LowSeverityIssue,
+  OutputResponse,
+} from "../../lib/types";
+import { FieldEditOutcomePanel } from "./FieldEditOutcomePanel";
 
 function SolvabilityChip({ solvability }: { solvability?: string }) {
   if (!solvability) return null;
@@ -106,7 +112,7 @@ function HighInsightCard({ issue, index }: { issue: HighSeverityIssue; index: nu
             ) : null}
             {issue.solvability === "pipeline" ? (
               <p className="insight-card__hint">
-                Use <strong>Refine in document</strong> to apply a structured rewrite for this field.
+                Use <strong>Refine in doc</strong> to apply a structured rewrite for this field.
               </p>
             ) : null}
           </motion.div>
@@ -184,13 +190,25 @@ function LowSeverityCollapsible({ lows }: { lows: LowSeverityIssue[] }) {
   );
 }
 
-function ReviewInsights({ data }: { data: OutputResponse }) {
+function ReviewInsights({
+  data,
+  editOutcome,
+  canReEdit,
+  onDismissEditOutcome,
+  onReEditSkipped,
+}: {
+  data: OutputResponse;
+  editOutcome?: FieldEditOutcomeState | null;
+  canReEdit?: boolean;
+  onDismissEditOutcome?: () => void;
+  onReEditSkipped?: () => void;
+}) {
   const review = data.review;
-  if (!review) return null;
+  const highs: HighSeverityIssue[] = review?.high_severity ?? [];
+  const lows: LowSeverityIssue[] = review?.low_severity ?? [];
+  const hasReviewContent = highs.length > 0 || lows.length > 0;
 
-  const highs: HighSeverityIssue[] = review.high_severity ?? [];
-  const lows: LowSeverityIssue[] = review.low_severity ?? [];
-  if (highs.length === 0 && lows.length === 0) return null;
+  if (!hasReviewContent && !editOutcome) return null;
 
   const reduce = useReducedMotion();
 
@@ -201,40 +219,71 @@ function ReviewInsights({ data }: { data: OutputResponse }) {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4"
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <h3 className="insight-review__heading">AI quality review</h3>
-        {review.passed ? (
-          <span className="insight-badge insight-badge--cleared">Cleared</span>
-        ) : (
-          <span className="insight-badge insight-badge--review">
-            {highs.length} item{highs.length !== 1 ? "s" : ""} for your review
-          </span>
-        )}
-        {lows.length > 0 ? (
-          <span className="insight-badge insight-badge--polish">
-            {lows.length} auto polish{lows.length !== 1 ? "es" : ""}
-          </span>
-        ) : null}
-      </div>
+      {hasReviewContent && review ? (
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="insight-review__heading">AI quality review</h3>
+            {review.passed ? (
+              <span className="insight-badge insight-badge--cleared">Cleared</span>
+            ) : (
+              <span className="insight-badge insight-badge--review">
+                {highs.length} item{highs.length !== 1 ? "s" : ""} for your review
+              </span>
+            )}
+            {lows.length > 0 ? (
+              <span className="insight-badge insight-badge--polish">
+                {lows.length} auto polish{lows.length !== 1 ? "es" : ""}
+              </span>
+            ) : null}
+          </div>
 
-      {highs.length > 0 ? (
-        <div className="space-y-3">
-          {highs.map((h, i) => (
-            <HighInsightCard key={i} issue={h} index={i} />
-          ))}
-        </div>
+          {highs.length > 0 ? (
+            <div className="space-y-3">
+              {highs.map((h, i) => (
+                <HighInsightCard key={i} issue={h} index={i} />
+              ))}
+            </div>
+          ) : null}
+
+          {lows.length > 0 ? <LowSeverityCollapsible lows={lows} /> : null}
+        </>
       ) : null}
 
-      {lows.length > 0 ? <LowSeverityCollapsible lows={lows} /> : null}
+      {editOutcome && onDismissEditOutcome && onReEditSkipped ? (
+        <FieldEditOutcomePanel
+          outcome={editOutcome}
+          canReEdit={canReEdit ?? false}
+          onDismiss={onDismissEditOutcome}
+          onReEditSkipped={onReEditSkipped}
+        />
+      ) : null}
     </motion.section>
   );
 }
 
-export function SessionOutputInsights({ data }: { data: OutputResponse }) {
+export function SessionOutputInsights({
+  data,
+  editOutcome,
+  canReEdit,
+  onDismissEditOutcome,
+  onReEditSkipped,
+}: {
+  data: OutputResponse;
+  editOutcome?: FieldEditOutcomeState | null;
+  canReEdit?: boolean;
+  onDismissEditOutcome?: () => void;
+  onReEditSkipped?: () => void;
+}) {
   return (
     <div className="mt-8 space-y-6">
       <GenerationWarnings warnings={data.generation_warnings ?? []} />
-      <ReviewInsights data={data} />
+      <ReviewInsights
+        data={data}
+        editOutcome={editOutcome}
+        canReEdit={canReEdit}
+        onDismissEditOutcome={onDismissEditOutcome}
+        onReEditSkipped={onReEditSkipped}
+      />
     </div>
   );
 }

@@ -374,17 +374,6 @@ export function NewSessionPage() {
           </section>
 
           <footer className="ns-footer">
-            <p className="ns-footer__hint">
-              {balanceQuery.isSuccess ? (
-                <>
-                  Uses <strong>{formatCredits(pipelineCost)} credits</strong> (reserved until the run
-                  completes or fails). You have{" "}
-                  <strong>{formatCredits(availableCredits)}</strong> available.
-                </>
-              ) : (
-                "Creates a session, uploads files, and runs the pipeline."
-              )}
-            </p>
             <button
               type="submit"
               className="ns-footer__btn"

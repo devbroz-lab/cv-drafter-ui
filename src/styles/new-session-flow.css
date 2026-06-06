@@ -279,16 +279,13 @@
 }
 
 .ns-segment__opt:hover:not(.ns-segment__opt--active) {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--overlay-hover);
 }
 
 .ns-segment__opt--active {
-  border-color: rgba(16, 163, 127, 0.45);
-  background: var(--ns-accent-dim);
-  box-shadow:
-    inset 0 1px 0 rgba(16, 163, 127, 0.15),
-    0 0 0 1px rgba(16, 163, 127, 0.12),
-    0 0 20px -6px rgba(16, 163, 127, 0.35);
+  border-color: color-mix(in srgb, var(--ns-accent) 28%, var(--ns-border));
+  background: var(--ns-elevated);
+  box-shadow: var(--shadow-xs);
 }
 
 .ns-segment__opt--active .ns-segment__label {
@@ -296,7 +293,7 @@
 }
 
 .ns-segment__opt--active .ns-segment__hint {
-  color: rgba(16, 163, 127, 0.75);
+  color: color-mix(in srgb, var(--ns-accent) 55%, var(--ns-muted));
 }
 
 .ns-segment__label {
@@ -529,7 +526,7 @@
   .ns-footer {
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     padding: var(--ns-space-5) var(--ns-space-8);
   }
 }

@@ -549,6 +549,45 @@ body {
   gap: 0.625rem;
 }
 
+.field-edit-outcome__diffs {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--chat-border-subtle);
+}
+
+.field-edit-outcome__diffs-title {
+  margin: 0 0 0.875rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--chat-muted);
+}
+
+.field-edit-outcome__diffs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.field-edit-outcome__diff-block {
+  border-radius: 0.875rem;
+  border: 1px solid var(--chat-border-subtle);
+  background: var(--chat-surface);
+  padding: 0.875rem 1rem;
+}
+
+.field-edit-outcome__diff-block-head {
+  margin-bottom: 0.75rem;
+}
+
+.field-edit-outcome__diff-block-label {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--chat-text);
+}
+
 .field-edit-outcome__actions {
   display: flex;
   flex-wrap: wrap;
@@ -1027,14 +1066,6 @@ body {
 .app-shell--sidebar-collapsed .app-shell-sidebar-brand {
   opacity: 0;
   pointer-events: none;
-}
-
-.app-shell-sidebar-eyebrow {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
 }
 
 .app-shell-sidebar-title {

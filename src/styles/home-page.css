@@ -47,17 +47,7 @@
 
 .home-page__title {
   margin-top: var(--home-space-3);
-  font-size: 1.875rem;
-  font-weight: 500;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
-  color: var(--chat-text);
-}
-
-@media (min-width: 640px) {
-  .home-page__title {
-    font-size: 2.125rem;
-  }
+  line-height: 1;
 }
 
 .home-page__lead {
