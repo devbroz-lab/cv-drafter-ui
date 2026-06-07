@@ -37,6 +37,7 @@ import {
 } from "../lib/utils/locatorToDotPath";
 import type { LocatorToDotPathOptions } from "../lib/utils/locatorToDotPath";
 import type { Locator as UtilLocator } from "../lib/utils/locatorToDotPath";
+import { extractCellText, extractWordText, wpChildren, WP_NS } from "../lib/utils/docxParseText";
 import { FieldSelectorTooltip } from "./FieldSelectorTooltip";
 
 // ---------------------------------------------------------------------------
@@ -130,7 +131,7 @@ const EDIT_COLORS = [
 ] as const;
 
 const docParaBase =
-  "group relative rounded-2xl border border-zinc-200/80 border-l-[3px] border-l-white/0 bg-white px-4 py-3.5 text-[15px] leading-[1.65] tracking-[-0.012em] text-zinc-800/95 shadow-sm transition-colors duration-150";
+  "group relative whitespace-pre-line rounded-2xl border border-zinc-200/80 border-l-[3px] border-l-white/0 bg-white px-4 py-3.5 text-[15px] leading-[1.65] tracking-[-0.012em] text-zinc-800/95 shadow-sm transition-colors duration-150";
 
 const docParaHover =
   "hover:border-zinc-300/90 hover:bg-white hover:shadow-md";
@@ -143,7 +144,7 @@ const docParaRef = "border-l-[#d97757]/80 bg-orange-50 ring-1 ring-inset ring-[#
 const docParaDisabled = "cursor-not-allowed opacity-45";
 
 const tdBase =
-  "relative rounded-xl border border-transparent px-3 py-2.5 text-[13px] leading-relaxed text-zinc-800/95 transition-colors duration-150";
+  "relative whitespace-pre-line rounded-xl border border-transparent px-3 py-2.5 text-[13px] leading-relaxed text-zinc-800/95 transition-colors duration-150";
 
 const tdHover =
   "cursor-pointer hover:border-zinc-200/80 hover:bg-white/90 hover:shadow-sm";
@@ -171,31 +172,8 @@ const WB_TABLE_LABELS: Record<number, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// XML parsing helpers
+// XML parsing helpers (text extraction in lib/utils/docxParseText.ts)
 // ---------------------------------------------------------------------------
-
-const WP_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
-
-function extractWordText(elem: Element): string {
-  let text = "";
-  for (const child of Array.from(elem.childNodes)) {
-    if (child.nodeType === Node.ELEMENT_NODE) {
-      const el = child as Element;
-      if (el.localName === "t") {
-        text += el.textContent ?? "";
-      } else {
-        text += extractWordText(el);
-      }
-    }
-  }
-  return text;
-}
-
-function wpChildren(el: Element, localName: string): Element[] {
-  return Array.from(el.children).filter(
-    (c) => c.nodeType === Node.ELEMENT_NODE && c.namespaceURI === WP_NS && c.localName === localName,
-  );
-}
 
 type ParsedParagraph = { kind: "paragraph"; paragraphIndex: number; text: string };
 type ParsedCell = { rowIndex: number; cellIndex: number; text: string };
@@ -228,7 +206,7 @@ function parseDocumentXml(xmlString: string): ParsedBlock[] {
         const cells: ParsedCell[] = [];
         let cellIdx = 0;
         for (const cellElem of wpChildren(rowElem, "tc")) {
-          cells.push({ rowIndex: rowIdx, cellIndex: cellIdx, text: extractWordText(cellElem) });
+          cells.push({ rowIndex: rowIdx, cellIndex: cellIdx, text: extractCellText(cellElem) });
           cellIdx++;
         }
         rows.push({ rowIndex: rowIdx, cells });
