@@ -218,3 +218,41 @@
   line-height: 1.5;
   color: var(--insight-chip-auto-text);
 }
+
+/* Failed run — theme-aware (readable on light & dark) */
+.session-run-error {
+  border-color: var(--session-error-border) !important;
+  box-shadow: 0 0 0 1px var(--session-error-ring);
+}
+
+.session-run-error__eyebrow {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--session-error-eyebrow);
+}
+
+.session-run-error__title {
+  margin: 0.25rem 0 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--session-error-title);
+}
+
+.session-run-error__log {
+  margin-top: 1rem;
+  max-height: min(360px, 50vh);
+  overflow: auto;
+  white-space: pre-wrap;
+  border-radius: 0.75rem;
+  border: 1px solid var(--session-error-log-border);
+  background: var(--session-error-log-bg);
+  padding: 1rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--session-error-log-text);
+}

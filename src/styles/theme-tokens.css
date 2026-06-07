@@ -207,6 +207,14 @@ html.theme-transition *::after {
   --insight-chip-human-text: #fde68a;
   --insight-field-chip-bg: rgba(0, 0, 0, 0.28);
 
+  --session-error-border: rgba(248, 113, 113, 0.28);
+  --session-error-ring: rgba(248, 113, 113, 0.18);
+  --session-error-eyebrow: var(--pipeline-name-failed);
+  --session-error-title: var(--chat-text);
+  --session-error-log-bg: rgba(0, 0, 0, 0.35);
+  --session-error-log-text: var(--chat-muted);
+  --session-error-log-border: rgba(255, 255, 255, 0.06);
+
   --home-session-bg: radial-gradient(
       ellipse 80% 60% at 50% -30%,
       rgba(255, 255, 255, 0.04),
@@ -383,6 +391,14 @@ html.theme-transition *::after {
   --insight-chip-human-bg: rgba(184, 134, 11, 0.12);
   --insight-chip-human-text: #8a6914;
   --insight-field-chip-bg: rgba(42, 40, 37, 0.06);
+
+  --session-error-border: rgba(196, 92, 92, 0.35);
+  --session-error-ring: rgba(196, 92, 92, 0.2);
+  --session-error-eyebrow: var(--pipeline-name-failed);
+  --session-error-title: var(--chat-text);
+  --session-error-log-bg: var(--color-surface-muted);
+  --session-error-log-text: var(--chat-text);
+  --session-error-log-border: var(--chat-border-subtle);
 
   --home-session-bg: linear-gradient(168deg, #f4efe8 0%, #ebe7e0 52%, #e3ded6 100%);
   --home-session-shadow: var(--shadow-card);

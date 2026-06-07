@@ -756,10 +756,10 @@ export function SessionWorkspacePage() {
               initial={reduceMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <Card tone="session" className="border-red-500/25 ring-1 ring-red-500/20">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-red-300/90">Run stopped</p>
-                <h2 className="mt-1 text-lg font-semibold text-red-100/95">Pipeline could not finish</h2>
-                <pre className="mt-4 max-h-[min(360px,50vh)] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-relaxed text-[var(--color-text-muted)] ring-1 ring-white/[0.05] editor-scrollbar">
+              <Card tone="session" className="session-run-error">
+                <p className="session-run-error__eyebrow">Run stopped</p>
+                <h2 className="session-run-error__title">Pipeline could not finish</h2>
+                <pre className="session-run-error__log editor-scrollbar">
                   {statusQuery.data.error_message}
                 </pre>
               </Card>
