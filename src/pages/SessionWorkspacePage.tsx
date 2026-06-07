@@ -458,7 +458,8 @@ export function SessionWorkspacePage() {
             <SessionLivePipelineStrip
               embedded
               status={st}
-              progressPct={progressForStatus(st)}
+              manifest={manifestQuery.data}
+              progressPct={manifestQuery.data?.progress ?? progressForStatus(st)}
               fileLabel={fileLabel}
             />
           </motion.div>

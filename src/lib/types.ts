@@ -33,9 +33,17 @@ export interface SessionStatusResponse {
   updated_at: string | null;
 }
 
+export interface WarningEntry {
+  stage: string;
+  kind: string;
+  message: string;
+  details?: Record<string, unknown> | null;
+}
+
 export interface ManifestStep {
   name: string;
   status: string;
+  started_at?: string | null;
   completed_at: string | null;
 }
 
@@ -45,6 +53,10 @@ export interface ManifestResponse {
   steps: ManifestStep[];
   checkpoint_pending: string | null;
   reviewer_blocked: boolean;
+  /** 0–100 from backend step weights; omit on older API builds. */
+  progress?: number;
+  current_step?: string | null;
+  warnings?: WarningEntry[];
 }
 
 export interface SessionSummary {

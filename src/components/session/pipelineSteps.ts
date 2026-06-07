@@ -1,4 +1,8 @@
-import type { ManifestStep, SessionStatus } from "../../lib/types";
+import type { ManifestStep, SessionStatus, WarningEntry } from "../../lib/types";
+import {
+  stageElapsedLabel,
+  warningsForBackendSteps,
+} from "../../lib/utils/pipelineManifest";
 
 import { currentStepIndex, inferStepVisualState, type StepVisualState } from "./stepVisual";
 
@@ -49,6 +53,14 @@ export type UserPipelineStageView = {
   label: string;
   activePhrase: string;
   visual: StepVisualState;
+  warnings: WarningEntry[];
+  elapsedLabel: string | null;
+};
+
+export type DerivePipelineStagesOptions = {
+  currentStep?: string | null;
+  warnings?: WarningEntry[];
+  nowMs?: number;
 };
 
 function memberVisuals(stage: (typeof USER_PIPELINE_STAGES)[number], byName: Map<string, ManifestStep>) {
@@ -76,9 +88,14 @@ function stageVisual(
 export function deriveUserPipelineStages(
   backendSteps: ManifestStep[],
   sessionStatus?: SessionStatus,
+  options?: DerivePipelineStagesOptions,
 ): UserPipelineStageView[] {
   const byName = new Map(backendSteps.map((s) => [s.name, s]));
-  const curName = backendSteps.length ? backendSteps[currentStepIndex(backendSteps)]?.name : undefined;
+  const curName =
+    options?.currentStep ??
+    (backendSteps.length ? backendSteps[currentStepIndex(backendSteps)]?.name : undefined);
+  const warnings = options?.warnings ?? [];
+  const nowMs = options?.nowMs ?? Date.now();
 
   const views: UserPipelineStageView[] = [];
 
@@ -100,6 +117,8 @@ export function deriveUserPipelineStages(
       label: def.label,
       activePhrase: def.activePhrase,
       visual: stageVisual(visuals, isCurrentGroup, priorGroupsDone),
+      warnings: warningsForBackendSteps(def.backendSteps, warnings),
+      elapsedLabel: stageElapsedLabel(def.backendSteps, byName, curName ?? null, nowMs),
     });
   }
 
@@ -112,6 +131,17 @@ export function deriveUserPipelineStages(
   }
 
   return views;
+}
+
+/** Active phrase for the backend step currently in flight. */
+export function activePhraseForCurrentStep(currentStep: string | null | undefined): string | null {
+  if (!currentStep) return null;
+  for (const def of USER_PIPELINE_STAGES) {
+    if ((def.backendSteps as readonly string[]).includes(currentStep)) {
+      return def.activePhrase;
+    }
+  }
+  return null;
 }
 
 export function currentUserStageIndex(stages: UserPipelineStageView[]): number {
