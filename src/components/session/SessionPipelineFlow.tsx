@@ -2,11 +2,14 @@ import { motion, useReducedMotion } from "framer-motion";
 import clsx from "clsx";
 import { useEffect, useId, useState } from "react";
 
+import { checkpointPendingLabel } from "../../lib/sessionStatusLabels";
+import type { ManifestResponse, SessionStatus, WarningEntry } from "../../lib/types";
+import { backendStepLabel, reviewFindingsSummary } from "../../lib/utils/pipelineManifest";
 import {
-  checkpointPendingLabel,
-} from "../../lib/sessionStatusLabels";
-import type { ManifestResponse, SessionStatus } from "../../lib/types";
-import { deriveUserPipelineStages, type UserPipelineStageView } from "./pipelineSteps";
+  activePhraseForCurrentStep,
+  deriveUserPipelineStages,
+  type UserPipelineStageView,
+} from "./pipelineSteps";
 import type { StepVisualState } from "./stepVisual";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -22,9 +25,12 @@ function toTrackStatus(visual: StepVisualState): TrackStatus {
 function pipelineCardTitle(
   allDone: boolean,
   sessionStatus: SessionStatus | undefined,
+  currentStep: string | null | undefined,
 ): string {
   if (allDone) return "All stages complete";
   if (sessionStatus === "failed") return "Processing stopped";
+  const phrase = activePhraseForCurrentStep(currentStep);
+  if (phrase) return phrase;
   if (
     sessionStatus === "processing" ||
     sessionStatus === "checkpoint_1_pending" ||
@@ -84,8 +90,40 @@ function StepStatusTag({ visual }: { visual: StepVisualState }) {
   return null;
 }
 
+function StageWarnings({ warnings }: { warnings: WarningEntry[] }) {
+  const [open, setOpen] = useState(false);
+  if (!warnings.length) return null;
+
+  return (
+    <div className="pipeline-status-step__warnings">
+      <button
+        type="button"
+        className="pipeline-status-step__warnings-toggle"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className="pipeline-status-step__warnings-badge">{warnings.length}</span>
+        <span>{warnings.length === 1 ? "notice" : "notices"}</span>
+        <span className={clsx("pipeline-status-card__chevron", open && "pipeline-status-card__chevron--open")}>
+          ⌄
+        </span>
+      </button>
+      {open && (
+        <ul className="pipeline-status-step__warnings-list list-none p-0 m-0">
+          {warnings.map((w, i) => (
+            <li key={`${w.kind}-${i}`} className="pipeline-status-step__warnings-item">
+              <span className="pipeline-status-step__warnings-dot" aria-hidden />
+              <span>{w.message}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function PipelineStepRow({ stage }: { stage: UserPipelineStageView }) {
-  const { label, visual } = stage;
+  const { label, visual, elapsedLabel, warnings } = stage;
 
   return (
     <li className="pipeline-status-step">
@@ -117,18 +155,29 @@ function PipelineStepRow({ stage }: { stage: UserPipelineStageView }) {
           <span className="text-[10px] font-bold leading-none text-red-400">×</span>
         )}
       </span>
-      <span
-        className={clsx(
-          "pipeline-status-step__name",
-          (visual === "completed" || visual === "approved") && "pipeline-status-step__name--done",
-          visual === "running" && "pipeline-status-step__name--running",
-          visual === "pending" && "pipeline-status-step__name--pending",
-          visual === "blocked" && "pipeline-status-step__name--blocked",
-          visual === "failed" && "pipeline-status-step__name--failed",
-        )}
-      >
-        {label}
-      </span>
+      <div className="pipeline-status-step__body min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span
+            className={clsx(
+              "pipeline-status-step__name",
+              (visual === "completed" || visual === "approved") && "pipeline-status-step__name--done",
+              visual === "running" && "pipeline-status-step__name--running",
+              visual === "pending" && "pipeline-status-step__name--pending",
+              visual === "blocked" && "pipeline-status-step__name--blocked",
+              visual === "failed" && "pipeline-status-step__name--failed",
+            )}
+          >
+            {label}
+          </span>
+          {warnings.length > 0 && !elapsedLabel && (
+            <span className="pipeline-status-step__warnings-badge pipeline-status-step__warnings-badge--inline">
+              {warnings.length}
+            </span>
+          )}
+        </div>
+        {elapsedLabel ? <p className="pipeline-status-step__elapsed">{elapsedLabel}</p> : null}
+        <StageWarnings warnings={warnings} />
+      </div>
       <StepStatusTag visual={visual} />
     </li>
   );
@@ -148,7 +197,19 @@ export function SessionPipelineTimeline({
   const reduce = useReducedMotion();
   const stepsListId = useId();
   const backendSteps = manifest?.steps ?? [];
-  const userStages = deriveUserPipelineStages(backendSteps, sessionStatus);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!manifest?.current_step) return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [manifest?.current_step]);
+
+  const userStages = deriveUserPipelineStages(backendSteps, sessionStatus, {
+    currentStep: manifest?.current_step,
+    warnings: manifest?.warnings ?? [],
+    nowMs,
+  });
   const allDone = sessionStatus === "completed" || userStages.every((s) => s.visual === "completed");
   const doneCount = userStages.filter(
     (s) => s.visual === "completed" || s.visual === "approved",
@@ -195,17 +256,26 @@ export function SessionPipelineTimeline({
 
   const trackStatuses = userStages.map((s) => toTrackStatus(s.visual));
   const pendingHint = !allDone ? checkpointPendingLabel(manifest?.checkpoint_pending) : null;
+  const reviewSummary = reviewFindingsSummary(manifest?.warnings);
   const reviewerWarning = manifest?.reviewer_blocked
-    ? "Review flagged an item — check the deliverable section when ready."
+    ? reviewSummary
+      ? `Review flagged ${reviewSummary.high} item${reviewSummary.high !== 1 ? "s" : ""} for your attention${
+          reviewSummary.low > 0 ? ` (${reviewSummary.low} auto-polished)` : ""
+        } — check the deliverable when ready.`
+      : "Review flagged an item — check the deliverable section when ready."
     : null;
   const warningMessage = reviewerWarning ?? pendingHint;
+  const totalWarnings = manifest?.warnings?.length ?? 0;
 
   const summaryText =
     doneCount === totalCount
       ? "All stages completed successfully"
       : `${doneCount} of ${totalCount} stages done`;
 
-  const title = pipelineCardTitle(allDone, sessionStatus);
+  const title = pipelineCardTitle(allDone, sessionStatus, manifest?.current_step);
+  const currentStepHint = manifest?.current_step
+    ? backendStepLabel(manifest.current_step)
+    : null;
 
   return (
     <motion.section
@@ -227,11 +297,23 @@ export function SessionPipelineTimeline({
         {title}
       </h2>
 
+      {currentStepHint && !allDone && (
+        <p className="pipeline-status-card__hint">
+          Current step: <span className="text-[var(--chat-text)]">{currentStepHint}</span>
+        </p>
+      )}
+
       {warningMessage && (
         <div className="pipeline-status-card__warning" role="status">
           <span className="pipeline-status-card__warning-dot" aria-hidden />
           <p className="pipeline-status-card__warning-text">{warningMessage}</p>
         </div>
+      )}
+
+      {totalWarnings > 0 && !allDone && (
+        <p className="pipeline-status-card__notices-summary">
+          {totalWarnings} agent notice{totalWarnings !== 1 ? "s" : ""} so far — expand steps below for detail.
+        </p>
       )}
 
       <PipelineProgressTrack statuses={trackStatuses} />

@@ -2,21 +2,27 @@ import { motion, useReducedMotion } from "framer-motion";
 import clsx from "clsx";
 
 import { livePipelineStageLabel } from "../../lib/sessionStatusLabels";
-import type { SessionStatus } from "../../lib/types";
+import type { ManifestResponse, SessionStatus } from "../../lib/types";
+import { backendStepLabel } from "../../lib/utils/pipelineManifest";
+import { activePhraseForCurrentStep } from "./pipelineSteps";
 
 export function SessionLivePipelineStrip({
   status,
   progressPct,
   fileLabel,
+  manifest,
   embedded = false,
 }: {
   status: SessionStatus | undefined;
   progressPct: number;
   fileLabel: string;
+  manifest?: ManifestResponse;
   embedded?: boolean;
 }) {
   const reduce = useReducedMotion();
-  const stage = livePipelineStageLabel(status);
+  const activePhrase = activePhraseForCurrentStep(manifest?.current_step);
+  const stepHint = manifest?.current_step ? backendStepLabel(manifest.current_step) : null;
+  const stage = activePhrase ?? livePipelineStageLabel(status);
   const shortLabel = fileLabel.length > 48 ? `${fileLabel.slice(0, 45)}…` : fileLabel;
 
   return (
@@ -40,6 +46,11 @@ export function SessionLivePipelineStrip({
           </p>
           <p className="mt-2 text-[0.8125rem] leading-relaxed text-[var(--chat-muted,#b4b4b4)]/90">
             <span className="text-[var(--chat-text,#ececec)]">{stage}</span>
+            {stepHint && (
+              <span className="mt-1 block text-[0.75rem] text-[var(--chat-muted,#b4b4b4)]">
+                {stepHint}
+              </span>
+            )}
           </p>
         </motion.div>
         <motion.div className="flex shrink-0 items-baseline gap-1 tabular-nums">
