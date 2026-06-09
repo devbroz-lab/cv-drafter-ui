@@ -28,7 +28,7 @@ export function SessionLivePipelineStrip({
   return (
     <div className={clsx("relative", embedded ? "" : "session-panel session-card p-6 sm:p-7")}>
       {embedded && (
-        <span className="session-card-eyebrow session-card-eyebrow--accent mb-4 block">Live</span>
+        <span className="session-card-eyebrow session-card-eyebrow--live mb-4 block">Live</span>
       )}
       <motion.div
         layout
@@ -39,7 +39,7 @@ export function SessionLivePipelineStrip({
       >
         <motion.div className="min-w-0 flex-1">
           {!embedded && (
-            <span className="session-card-eyebrow session-card-eyebrow--accent mb-2 block">Live</span>
+            <span className="session-card-eyebrow session-card-eyebrow--live mb-2 block">Live</span>
           )}
           <p className="text-sm text-[var(--chat-muted,#b4b4b4)]">
             Working on <span className="font-medium text-[var(--chat-text,#ececec)]">“{shortLabel}”</span>

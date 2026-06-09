@@ -146,7 +146,8 @@ export function TorPoolPicker({
     queryKey: ["torPools", sessionId, accessToken],
     queryFn: () => getTorPools(accessToken!, sessionId),
     enabled: !!accessToken && !!sessionId,
-    retry: 2,
+    retry: 5,
+    refetchInterval: (q) => (q.state.error ? 3000 : false),
   });
 
   // Auto-select when exactly one pool
@@ -275,31 +276,19 @@ export function TorPoolPicker({
           </p>
         </div>
       ) : (
-        <>
-          <label className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
-            <input
-              type="checkbox"
-              checked={resolvedIndex !== null}
-              readOnly
-              className="pointer-events-none"
-            />
-            {resolvedIndex !== null
-              ? wb
-                ? "SN selected — ready to continue."
-                : "Expert pool selected — ready to continue."
-              : wb
-                ? "Select an SN above to continue."
-                : "Select an expert pool above to continue."}
-          </label>
-
-          <Button
-            type="button"
-            disabled={!canApprove}
-            onClick={() => void handleApprove()}
-          >
-            {wb ? "Continue with selected SN" : "Approve & Continue"}
-          </Button>
-        </>
+        <Button
+          type="button"
+          disabled={!canApprove}
+          onClick={() => void handleApprove()}
+        >
+          {resolvedIndex !== null
+            ? wb
+              ? "Continue with selected SN"
+              : "Approve & Continue"
+            : wb
+              ? "Select an SN to continue"
+              : "Select a role to continue"}
+        </Button>
       )}
     </div>
   );

@@ -8,8 +8,9 @@ import { useToast } from "../contexts/ToastContext";
 import { formatApiError } from "../lib/api";
 import { MicrosoftIcon } from "../components/auth/AuthBrandIcons";
 import { GoogleSsoButton } from "../components/auth/GoogleSsoButton";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { ALLOWLIST_DENIED_MESSAGE, isEmailAllowed, normalizeEmail } from "../lib/allowedEmails";
-import { APP_NAME } from "../lib/brand";
+import { BrandWordmark } from "../components/BrandWordmark";
 import { Card } from "../components/ui";
 
 const PROMO_FEATURES = [
@@ -101,10 +102,15 @@ export function LoginPage() {
 
   return (
     <div className="auth-page session-workspace-root">
+      <div className="auth-page__theme">
+        <ThemeToggle />
+      </div>
       <motion.div className="auth-page__shell" {...motionProps}>
         <div className="auth-page__layout">
           <Card tone="session" className="auth-page__panel auth-page__panel--promo">
-            <span className="auth-page__badge">{APP_NAME}</span>
+            <div className="auth-page__brand">
+              <BrandWordmark size="auth" />
+            </div>
             <h1 className="auth-page__promo-title">
               Build interview-ready CVs with the guided agent pipeline.
             </h1>
@@ -132,6 +138,9 @@ export function LoginPage() {
           >
             <Card tone="session" className="auth-page__panel auth-page__panel--form">
               <header className="auth-page__form-head">
+                <div className="auth-page__form-brand">
+                  <BrandWordmark size="auth" />
+                </div>
                 <p className="auth-page__kicker">Sign in</p>
                 <h2 className="auth-page__title">Welcome back</h2>
                 <p className="auth-page__subtitle">Continue your CV drafting sessions.</p>
@@ -197,7 +206,7 @@ export function LoginPage() {
                   clientId={googleClientId}
                   disabled={msBusy}
                   busy={googleBusy}
-                  onError={() => toast("Google sign-in failed.", "error")}
+                  onError={(message) => toast(message, "error")}
                   onCredential={async (credential) => {
                     setGoogleBusy(true);
                     try {

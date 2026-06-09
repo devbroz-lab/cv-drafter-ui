@@ -6,23 +6,26 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { SessionOutputInsights } from "../components/session/SessionAIReview";
 import { SessionLivePipelineStrip } from "../components/session/SessionPipeline";
 import { SessionPipelineTimeline } from "../components/session/SessionPipelineFlow";
-import { SkippedEditsPanel } from "../components/session/SkippedEditsPanel";
 import { useAuth } from "../contexts/AuthContext";
+import { fetchMeterBalance, parseCredits } from "../lib/metering";
 import { useToast } from "../contexts/ToastContext";
 import {
   ApiError,
   approveCheckpoint,
   formatApiError,
+  isAutoApproveTerminalError,
   getManifest,
   getOutput,
   getOutputDownloadUrl,
   getSessionStatus,
+  startSession,
   submitFieldEdits,
 } from "../lib/api";
 import { recentSessionLabel, upsertRecentSession } from "../lib/recentSessions";
 import { livePipelineStageLabel, sessionStatusLabel } from "../lib/sessionStatusLabels";
 import type {
   FieldEditItem,
+  FieldEditOutcomeState,
   FieldEditResponse,
   SessionStatus,
 } from "../lib/types";
@@ -114,6 +117,29 @@ export function SessionWorkspacePage() {
 
   const st = statusQuery.data?.status;
 
+  // Recover when New Session navigated here before POST /start finished (or failed).
+  useEffect(() => {
+    if (!accessToken || !sessionId || st !== "queued") return;
+    if (!statusQuery.data?.source_storage_key) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        await startSession(accessToken, sessionId);
+        if (!cancelled) {
+          void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
+          void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
+        }
+      } catch {
+        /* status poll will surface queued vs processing */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, qc, sessionId, st, statusQuery.data?.source_storage_key]);
+
   const manifestQuery = useQuery({
     queryKey: ["manifest", sessionId, accessToken],
     queryFn: () => getManifest(accessToken!, sessionId),
@@ -131,6 +157,18 @@ export function SessionWorkspacePage() {
       !!sessionId &&
       (st === "checkpoint_3_pending" || st === "completed"),
   });
+
+  const balanceQuery = useQuery({
+    queryKey: ["metering", "balance"],
+    queryFn: () => fetchMeterBalance(accessToken!),
+    enabled: Boolean(accessToken),
+    staleTime: 30_000,
+  });
+
+  const revisionCost = parseCredits(balanceQuery.data?.rates.revision_credits);
+  const availableCredits = parseCredits(balanceQuery.data?.available_credits);
+  const canAffordRevision =
+    !balanceQuery.isSuccess || availableCredits >= revisionCost;
 
   // ── Recent session tracking ────────────────────────────────────────────────
 
@@ -172,6 +210,13 @@ export function SessionWorkspacePage() {
           void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
           return;
         } catch (e) {
+          if (isAutoApproveTerminalError(e)) {
+            void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
+            if (e instanceof ApiError && e.status === 401) {
+              toast("Session expired. Please sign in again.", "error");
+            }
+            return;
+          }
           lastErr = formatApiError(e);
           await wait(2000);
         }
@@ -206,6 +251,13 @@ export function SessionWorkspacePage() {
           void qc.invalidateQueries({ queryKey: ["output", sessionId] });
           return;
         } catch (e) {
+          if (isAutoApproveTerminalError(e)) {
+            void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
+            if (e instanceof ApiError && e.status === 401) {
+              toast("Session expired. Please sign in again.", "error");
+            }
+            return;
+          }
           lastErr = formatApiError(e);
           await wait(2000);
         }
@@ -310,9 +362,7 @@ export function SessionWorkspacePage() {
   // ── Field editor / batch state ─────────────────────────────────────────────
 
   const [pendingEdits, setPendingEdits] = useState<FieldEditItem[]>([]);
-  // Stores the result of the last POST /field-edit call when skipped > 0,
-  // so we can show the skipped-edits decision UI.
-  const [lastEditResult, setLastEditResult] = useState<FieldEditResponse | null>(null);
+  const [editOutcome, setEditOutcome] = useState<FieldEditOutcomeState | null>(null);
 
   const [cp1Collapsed, setCp1Collapsed] = useState(false);
   const [cp1SelectionLabel, setCp1SelectionLabel] = useState<string | null>(null);
@@ -321,6 +371,7 @@ export function SessionWorkspacePage() {
   useEffect(() => {
     setCp1Collapsed(false);
     setCp1SelectionLabel(null);
+    setEditOutcome(null);
   }, [sessionId]);
 
   useEffect(() => {
@@ -332,25 +383,24 @@ export function SessionWorkspacePage() {
 
   const fieldEditMut = useMutation({
     mutationFn: (edits: FieldEditItem[]) => submitFieldEdits(accessToken!, sessionId, edits),
-    onSuccess: (data: FieldEditResponse) => {
+    onSuccess: (data: FieldEditResponse, submitted: FieldEditItem[]) => {
       void qc.invalidateQueries({ queryKey: ["sessionStatus", sessionId] });
       void qc.invalidateQueries({ queryKey: ["manifest", sessionId] });
       void qc.invalidateQueries({ queryKey: ["output", sessionId] });
+      void qc.invalidateQueries({ queryKey: ["metering", "balance"] });
       setPendingEdits([]);
+      setShowViewer(false);
+      setEditOutcome({ result: data, submitted });
 
       const skipped = data.skipped ?? [];
       const applied = data.applied ?? [];
 
       if (skipped.length === 0) {
-        setShowViewer(false);
-        setLastEditResult(null);
         toast(
-          `${applied.length} edit${applied.length !== 1 ? "s" : ""} saved. ` +
-            "The Word file updates after rendering finishes (status returns to completed); open Edit fields or Download again then.",
+          `${applied.length} edit${applied.length !== 1 ? "s" : ""} saved — see the summary below.`,
         );
       } else {
-        setLastEditResult(data);
-        toast(`${applied.length} applied, ${skipped.length} skipped — see details below.`, "error");
+        toast(`${applied.length} applied, ${skipped.length} skipped — see the summary below.`, "error");
       }
     },
     onError: (e) => {
@@ -360,21 +410,19 @@ export function SessionWorkspacePage() {
   });
 
   // After partial skips: dismiss notice on completed (render already ran or will complete).
-  const handleApproveAnyway = useCallback(() => {
-    setLastEditResult(null);
-    setShowViewer(false);
+  const handleDismissEditOutcome = useCallback(() => {
+    setEditOutcome(null);
   }, []);
 
-  // "Cancel & re-edit" — re-open field editor; submit another /field-edit batch.
-  const handleCancelReEdit = useCallback(() => {
-    const applied = lastEditResult?.applied.length ?? 0;
-    const skippedCount = lastEditResult?.skipped.length ?? 0;
-    setLastEditResult(null);
+  const handleReEditSkipped = useCallback(() => {
+    const applied = editOutcome?.result.applied.length ?? 0;
+    const skippedCount = editOutcome?.result.skipped.length ?? 0;
+    setEditOutcome(null);
     void openViewer("field_editor");
     toast(
-      `${applied} edits were already applied. Re-editing for the ${skippedCount} skipped field(s).`,
+      `${applied} edit${applied !== 1 ? "s" : ""} already applied. Refining the ${skippedCount} skipped field${skippedCount !== 1 ? "s" : ""}.`,
     );
-  }, [lastEditResult, openViewer, toast]);
+  }, [editOutcome, openViewer, toast]);
 
   // ── Misc ───────────────────────────────────────────────────────────────────
 
@@ -577,15 +625,6 @@ export function SessionWorkspacePage() {
             </motion.div>
           )}
 
-          {lastEditResult && lastEditResult.skipped.length > 0 && (
-            <SkippedEditsPanel
-              result={lastEditResult}
-              canReEdit={st === "completed"}
-              onApproveAnyway={handleApproveAnyway}
-              onCancelReEdit={handleCancelReEdit}
-            />
-          )}
-
           {st === "completed" && (
             <>
               {outputQuery.data && (
@@ -603,7 +642,7 @@ export function SessionWorkspacePage() {
                           Your formatted CV is complete
                         </h2>
                         <p className="session-card-body">
-                          Download a print-ready Word export or edit fields inline before your next pass.
+                          Download a print-ready Word export or refine content in the document before your next pass.
                         </p>
                       </div>
                       <div className="session-icon-badge sm:mt-1">
@@ -620,7 +659,13 @@ export function SessionWorkspacePage() {
                       </div>
                     </div>
 
-                    <SessionOutputInsights data={outputQuery.data} />
+                    <SessionOutputInsights
+                      data={outputQuery.data}
+                      editOutcome={editOutcome}
+                      canReEdit={st === "completed"}
+                      onDismissEditOutcome={handleDismissEditOutcome}
+                      onReEditSkipped={handleReEditSkipped}
+                    />
 
                     <div className="mt-9 flex flex-wrap gap-3 sm:mt-10">
                       <Button
@@ -633,16 +678,33 @@ export function SessionWorkspacePage() {
                       </Button>
                       <Button
                         type="button"
-                        variant="secondary"
-                        className="session-btn-secondary"
+                        className="session-btn-refine"
                         disabled={viewerLoading || (showViewer && viewerMode === "field_editor")}
                         onClick={() => void openViewer("field_editor")}
                       >
-                        {viewerLoading && viewerMode === "field_editor"
-                          ? "Loading…"
-                          : showViewer && viewerMode === "field_editor"
-                          ? "Editor open →"
-                          : "Edit fields"}
+                        {viewerLoading && viewerMode === "field_editor" ? (
+                          "Opening…"
+                        ) : showViewer && viewerMode === "field_editor" ? (
+                          "Refine open →"
+                        ) : (
+                          <>
+                            <svg
+                              viewBox="0 0 24 24"
+                              className="session-btn-refine__icon"
+                              aria-hidden
+                            >
+                              <path
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"
+                              />
+                            </svg>
+                            Refine in doc
+                          </>
+                        )}
                       </Button>
                     </div>
 
@@ -670,7 +732,7 @@ export function SessionWorkspacePage() {
                           </div>
                         )}
                         {pendingEdits.length > 0 && pendingEdits.some((e) => !e.instruction.trim()) && (
-                          <p className="text-xs text-amber-200/90">
+                          <p className="text-xs text-[var(--color-warn)]">
                             Each queued edit needs an instruction before submit.
                           </p>
                         )}
@@ -695,15 +757,16 @@ export function SessionWorkspacePage() {
               initial={reduceMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <Card tone="session" className="border-red-500/25 ring-1 ring-red-500/20">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-red-300/90">Run stopped</p>
-                <h2 className="mt-1 text-lg font-semibold text-red-100/95">Pipeline could not finish</h2>
-                <pre className="mt-4 max-h-[min(360px,50vh)] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-relaxed text-[var(--color-text-muted)] ring-1 ring-white/[0.05] editor-scrollbar">
+              <Card tone="session" className="session-run-error">
+                <p className="session-run-error__eyebrow">Run stopped</p>
+                <h2 className="session-run-error__title">Pipeline could not finish</h2>
+                <pre className="session-run-error__log editor-scrollbar">
                   {statusQuery.data.error_message}
                 </pre>
               </Card>
             </motion.div>
           )}
+
         </motion.div>
       </motion.div>
     </div>
@@ -733,7 +796,8 @@ export function SessionWorkspacePage() {
               viewerMode !== "field_editor" ||
               pendingEdits.length === 0 ||
               pendingEdits.some((e) => !e.instruction.trim()) ||
-              fieldEditMut.isPending
+              fieldEditMut.isPending ||
+              (balanceQuery.isSuccess && !canAffordRevision)
             }
             submitEditsBusy={viewerMode === "field_editor" && fieldEditMut.isPending}
             onEditsChange={viewerMode === "field_editor" ? setPendingEdits : (undefined as never)}

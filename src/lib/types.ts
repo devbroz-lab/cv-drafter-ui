@@ -163,16 +163,29 @@ export interface SkippedEditItem {
   reason?: string;
 }
 
+export interface AppliedEditItem {
+  path: string;
+  instruction?: string;
+  previous_value?: string;
+  new_value?: string;
+}
+
 export interface FieldEditResponse {
   session_id: string;
   status: SessionStatus;
   /** Round number after increment — present in the backend response */
   round: number;
-  applied: string[];
+  /** Legacy responses may be plain paths; newer API returns full records */
+  applied: Array<string | AppliedEditItem>;
   /** Backend may return plain strings or {path, reason} objects */
   skipped: Array<string | SkippedEditItem>;
   message: string;
 }
+
+export type FieldEditOutcomeState = {
+  result: FieldEditResponse;
+  submitted: FieldEditItem[];
+};
 
 // ── Composite cell types (used by DocxViewer / FieldSelectorTooltip) ─────────
 

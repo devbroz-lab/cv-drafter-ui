@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 
 import clsx from "clsx";
@@ -7,6 +7,7 @@ import clsx from "clsx";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { createSession, formatApiError, startSession, uploadSource, uploadTor } from "../lib/api";
+import { fetchMeterBalance, formatCredits, parseCredits } from "../lib/metering";
 import { upsertRecentSession } from "../lib/recentSessions";
 
 const FILE_ACCEPT =
@@ -154,6 +155,18 @@ export function NewSessionPage() {
   const [jobDescription, setJobDescription] = useState("");
   const [recruiterComments, setRecruiterComments] = useState("");
 
+  const balanceQuery = useQuery({
+    queryKey: ["metering", "balance"],
+    queryFn: () => fetchMeterBalance(accessToken!),
+    enabled: Boolean(accessToken),
+    staleTime: 30_000,
+  });
+
+  const pipelineCost = parseCredits(balanceQuery.data?.rates.pipeline_run_credits);
+  const availableCredits = parseCredits(balanceQuery.data?.available_credits);
+  const canAffordStart =
+    !balanceQuery.isSuccess || availableCredits >= pipelineCost;
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!accessToken) {
@@ -166,6 +179,13 @@ export function NewSessionPage() {
     }
     if (!torFile) {
       toast("Please choose a ToR file (.docx or .pdf).", "error");
+      return;
+    }
+    if (!canAffordStart) {
+      toast(
+        `Not enough credits. This run needs ${formatCredits(pipelineCost)} credits; you have ${formatCredits(availableCredits)} available.`,
+        "error",
+      );
       return;
     }
     setBusy(true);
@@ -186,7 +206,6 @@ export function NewSessionPage() {
 
       await uploadSource(accessToken, session_id, cvFile);
       await uploadTor(accessToken, session_id, torFile);
-      await startSession(accessToken, session_id);
 
       upsertRecentSession({
         id: session_id,
@@ -195,9 +214,20 @@ export function NewSessionPage() {
         updatedAt: new Date().toISOString(),
       });
       void queryClient.invalidateQueries({ queryKey: ["sessions", "list"] });
+      void queryClient.invalidateQueries({ queryKey: ["metering", "balance"] });
 
-      toast("Session started. Pipeline is running.");
+      // Open workspace immediately so a slow/hung POST /start does not trap the user on "Starting…"
       navigate(`/sessions/${session_id}`, { replace: true, state: { sourceFilename } });
+
+      try {
+        await startSession(accessToken, session_id);
+        toast("Session started. Pipeline is running.");
+      } catch (startErr: unknown) {
+        toast(
+          `Files uploaded, but start did not confirm: ${formatApiError(startErr)}. The workspace will retry.`,
+          "error",
+        );
+      }
     } catch (err: unknown) {
       toast(formatApiError(err), "error");
     } finally {
@@ -344,8 +374,11 @@ export function NewSessionPage() {
           </section>
 
           <footer className="ns-footer">
-            <p className="ns-footer__hint">Creates a session, uploads files, and runs the pipeline.</p>
-            <button type="submit" className="ns-footer__btn" disabled={busy}>
+            <button
+              type="submit"
+              className="ns-footer__btn"
+              disabled={busy || (balanceQuery.isSuccess && !canAffordStart)}
+            >
               {busy ? "Starting…" : "Create & start"}
             </button>
           </footer>
