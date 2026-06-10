@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { motion, useReducedMotion } from "framer-motion";
@@ -7,7 +7,9 @@ import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { formatApiError } from "../lib/api";
 import { MicrosoftIcon } from "../components/auth/AuthBrandIcons";
-import { GoogleSsoButton } from "../components/auth/GoogleSsoButton";
+import { GoogleIcon } from "../components/auth/AuthBrandIcons";
+import { GoogleSignInHost, type GoogleSignInHostHandle } from "../components/auth/GoogleSignInHost";
+import { TermsAcceptanceModal } from "../components/auth/TermsAcceptanceModal";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ALLOWLIST_DENIED_MESSAGE, isEmailAllowed, normalizeEmail } from "../lib/allowedEmails";
 import { BrandWordmark } from "../components/BrandWordmark";
@@ -33,6 +35,8 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [msBusy, setMsBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
+  const googleSignInRef = useRef<GoogleSignInHostHandle>(null);
   const reduceMotion = useReducedMotion();
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -65,6 +69,35 @@ export function LoginPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function completeGoogleSignIn(credential: string) {
+    setGoogleBusy(true);
+    try {
+      await signInWithGoogle(credential);
+      navigate("/", { replace: true });
+      toast("Signed in with Google.");
+    } catch (err: unknown) {
+      toast(formatApiError(err), "error");
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
+
+  function onGoogleButtonClick() {
+    if (!googleClientId) {
+      toast(
+        "Google sign-in is not configured. Set VITE_GOOGLE_CLIENT_ID on the UI service and redeploy.",
+        "error",
+      );
+      return;
+    }
+    setTermsOpen(true);
+  }
+
+  function onTermsAccepted() {
+    setTermsOpen(false);
+    googleSignInRef.current?.trigger();
   }
 
   async function onMicrosoftSignIn() {
@@ -202,23 +235,27 @@ export function LoginPage() {
                   <MicrosoftIcon />
                   {msBusy ? "Signing in with Microsoft…" : "Continue with Microsoft"}
                 </button>
-                <GoogleSsoButton
-                  clientId={googleClientId}
-                  disabled={msBusy}
-                  busy={googleBusy}
-                  onError={(message) => toast(message, "error")}
-                  onCredential={async (credential) => {
-                    setGoogleBusy(true);
-                    try {
-                      await signInWithGoogle(credential);
-                      navigate("/", { replace: true });
-                      toast("Signed in with Google.");
-                    } catch (err: unknown) {
-                      toast(formatApiError(err), "error");
-                    } finally {
-                      setGoogleBusy(false);
-                    }
-                  }}
+                <button
+                  type="button"
+                  className="auth-page__sso-btn"
+                  disabled={msBusy || googleBusy}
+                  onClick={onGoogleButtonClick}
+                >
+                  <GoogleIcon />
+                  {googleBusy ? "Signing in with Google…" : "Continue with Google"}
+                </button>
+                {googleClientId ? (
+                  <GoogleSignInHost
+                    ref={googleSignInRef}
+                    clientId={googleClientId}
+                    onError={(message) => toast(message, "error")}
+                    onCredential={completeGoogleSignIn}
+                  />
+                ) : null}
+                <TermsAcceptanceModal
+                  open={termsOpen}
+                  onClose={() => setTermsOpen(false)}
+                  onAccept={onTermsAccepted}
                 />
               </div>
 

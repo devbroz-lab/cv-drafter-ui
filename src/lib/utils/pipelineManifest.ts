@@ -15,6 +15,19 @@ function isRunningStatus(status: string): boolean {
   return raw === "running" || raw.includes("progress") || raw === "in_progress";
 }
 
+function isStepUnfinished(status: string | undefined): boolean {
+  const raw = (status ?? "").toLowerCase();
+  if (raw === "done" || raw === "approved" || raw.includes("fail")) return false;
+  return (
+    raw === "waiting" ||
+    raw === "running" ||
+    raw === "pending" ||
+    raw === "blocked" ||
+    raw.includes("progress") ||
+    raw === "in_progress"
+  );
+}
+
 /** Elapsed label for a single backend step. */
 export function stepElapsedLabel(step: ManifestStep, nowMs: number): string | null {
   if (!step.started_at) return null;
@@ -37,7 +50,7 @@ export function stepElapsedLabel(step: ManifestStep, nowMs: number): string | nu
 export function stageElapsedLabel(
   backendStepNames: readonly string[],
   byName: Map<string, ManifestStep>,
-  currentStep: string | null,
+  _currentStep: string | null,
   nowMs: number,
 ): string | null {
   for (const name of backendStepNames) {
@@ -48,13 +61,11 @@ export function stageElapsedLabel(
     }
   }
 
-  if (currentStep && backendStepNames.includes(currentStep)) {
-    const step = byName.get(currentStep);
-    if (step) {
-      const label = stepElapsedLabel(step, nowMs);
-      if (label) return label;
-    }
-  }
+  const stageStillActive = backendStepNames.some((name) => {
+    const step = byName.get(name);
+    return step ? isStepUnfinished(step.status) : true;
+  });
+  if (stageStillActive) return null;
 
   let latest: { label: string; end: number } | null = null;
   for (const name of backendStepNames) {
