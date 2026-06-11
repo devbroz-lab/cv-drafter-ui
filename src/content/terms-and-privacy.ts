@@ -39,7 +39,7 @@ We ask you to confirm this each time you start a session. It's not red tape — 
 
 ## About the AI output
 
-${APP_NAME} is designed to work in collaboration with you. It handles the structured, time-consuming work of reformatting and produces a draft for your review; it is not intended to replace your judgment, expertise, or oversight. As with any AI-assisted tool, automated output can reflect the inherent limitations of the technology, so human review remains an essential part of the process. We recommend reading each document before you use it to confirm that names, dates, and other details have carried through as intended. The final document is yours to review and approve, and while the tool is built to produce reliable, well-structured output, AI-generated results cannot be guaranteed to be complete, accurate, or suited to every purpose.
+${APP_NAME} is designed to work in collaboration with you. It handles the structured, time-consuming work of reformatting and produces a draft for your review; it is not intended to replace your judgment, expertise, or oversight. As with any AI-assisted tool, automated output can reflect the inherent limitations of the technology, so human review remains an essential part of the process. We recommend reading each document before you use it to confirm that names, dates, and other details have carried through as intended.
 
 ## Leaving
 
