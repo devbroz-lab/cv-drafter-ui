@@ -4,7 +4,7 @@ const CONTACT_EMAIL =
   (import.meta.env.VITE_CONTACT_EMAIL as string | undefined)?.trim() || "";
 
 const LAST_UPDATED = "June 10, 2026";
-const JURISDICTION = "England and Wales";
+// const JURISDICTION = "England and Wales";
 const DATA_REGION = "the EU";
 
 /** Terms & privacy copy shown before Google sign-in. */
@@ -39,19 +39,7 @@ We ask you to confirm this each time you start a session. It's not red tape — 
 
 ## About the AI output
 
-The reformatting is done by AI, and AI gets things wrong sometimes — a date dropped, a title mixed up, a line that reads oddly. **Always read the output before you use it.** Think of the tool as a fast first draft, not a final word. It speeds up your work; it doesn't replace your judgment, and we can't promise the output is error-free or right for every purpose.
-
-## Using it fairly
-
-A few common-sense limits: don't upload things you're not allowed to, don't try to break or overload the service, and don't use it for anything unlawful. To keep things running smoothly for everyone, we may cap how many sessions you can run at once.
-
-## Who owns what
-
-Your files and the documents we generate for you are yours. The tool itself — the software, the templates, the design — is ours. You're free to use it for what it's built for.
-
-## When things go wrong
-
-We work to keep the service up and reliable, but we can't guarantee it's always available or always perfect, and we can't be responsible for what happens if you rely on AI output without checking it. Some protections can't be signed away under the law, and we don't try to.
+${APP_NAME} is designed to work in collaboration with you. It handles the structured, time-consuming work of reformatting and produces a draft for your review; it is not intended to replace your judgment, expertise, or oversight. As with any AI-assisted tool, automated output can reflect the inherent limitations of the technology, so human review remains an essential part of the process. We recommend reading each document before you use it to confirm that names, dates, and other details have carried through as intended.
 
 ## Leaving
 
@@ -61,13 +49,6 @@ You can stop using ${APP_NAME} and ask us to delete your account whenever you li
 ---
 
 # How we handle your data
-
-## Our two roles
-
-There are two kinds of data here, and we treat them differently:
-
-- **Your account info** (your email, basically) — that's ours to look after, and we're responsible for it.
-- **The CVs and ToRs you upload** — these belong to your work. You're the one in charge of that data; we just process it on your instructions and store it securely. Keeping the candidates informed is your call, because it's your relationship with them.
 
 ## What we collect
 
@@ -79,7 +60,7 @@ There are two kinds of data here, and we treat them differently:
 
 ## What we do with it
 
-We use it to run the service — store your files, do the reformatting, and give you the result. Nothing more exciting than that.
+We use it to run the service and give you the result. Nothing more exciting than that.
 
 ## Who else touches it
 
@@ -100,9 +81,8 @@ Your data is tied to your account and isn't visible to other users. Files are en
 
 ## Your rights
 
-If you're in a region like the EU, people have rights over their personal data — to see it, correct it, delete it, or object to how it's used. Since most of what we hold is candidate data rather than yours, a candidate's request is usually best handled by whoever uploaded their CV; we'll help that organization respond. For anything about your own account, just email ${CONTACT_EMAIL}.
+If you're in a region like the EU, people have rights over their personal data — to see it, correct it, delete it, or object to how it's used. Since most of what we hold is candidate data rather than yours, a candidate's request is usually best handled by whoever uploaded their CV; we'll help that organization respond.
 
 
 
-${CONTACT_EMAIL}
 `;

@@ -270,24 +270,18 @@ export function FieldSelectorTooltip({
 
         {/* Step 2 — field context + instruction (actions live in sticky footer below) */}
         {selectedOption && (
-          <div className="space-y-2">
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-                  Editing field
-                </p>
-                {options.length > 1 && (
-                  <span
-                    className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium"
-                    style={badge.style}
-                    title="This field belongs to this dialog"
-                  >
-                    {selectedOption.label}
-                  </span>
-                )}
-              </div>
-              <p className="mt-0.5 font-medium text-[var(--color-text)]">{selectedOption.label}</p>
-              <code className="mt-0.5 block min-w-0 break-all text-[10px] leading-snug text-[var(--color-accent)]">
+          <div className="space-y-3">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">
+                Editing field
+              </p>
+              <p
+                className="mt-2 text-[13px] font-medium leading-snug text-[var(--color-text)]"
+                title={selectedOption.label}
+              >
+                {selectedOption.label}
+              </p>
+              <code className="mt-2 block min-w-0 break-all rounded-md bg-[var(--color-bg)]/60 px-2 py-1 font-mono text-[10px] leading-snug text-[var(--color-accent)]">
                 {selectedOption.dotPath}
               </code>
             </div>
@@ -296,14 +290,14 @@ export function FieldSelectorTooltip({
               <button
                 type="button"
                 onClick={() => { setSelectedOption(null); setInstruction(""); }}
-                className="text-[10px] font-medium text-[var(--color-accent)] transition-opacity hover:opacity-100"
+                className="block text-left text-[11px] font-medium text-[var(--color-accent)] transition-opacity hover:opacity-80"
               >
                 ← Choose a different field
               </button>
             )}
 
-            <div>
-              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+            <div className="pt-0.5">
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">
                 Edit instruction
               </label>
               <textarea

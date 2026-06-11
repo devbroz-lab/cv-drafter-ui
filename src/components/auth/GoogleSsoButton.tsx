@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from "react";
 import clsx from "clsx";
 
 import { GoogleIcon } from "./AuthBrandIcons";
+import { mountGoogleSignInButton } from "./googleSignInMount";
 
 type GoogleSsoButtonProps = {
   clientId: string | undefined;
@@ -58,22 +59,8 @@ export function GoogleSsoButton({
     const el = hostRef.current;
 
     const mount = () => {
-      if (!window.google?.accounts?.id) return false;
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: handleCredential,
-      });
-      el.innerHTML = "";
       const width = el.parentElement?.clientWidth ?? 320;
-      window.google.accounts.id.renderButton(el, {
-        type: "standard",
-        theme: "outline",
-        size: "large",
-        width,
-        text: "signin_with",
-        logo_alignment: "left",
-      });
-      return true;
+      return mountGoogleSignInButton(el, clientId, handleCredential, width);
     };
 
     if (mount()) return;

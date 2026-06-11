@@ -4,11 +4,15 @@ export const ALLOWED_EMAILS = new Set(
   [
     "b.hamid0210@gmail.com",
     "alias.wardakmd@gmail.com",
+    "azam@gmail.com",
     "daksh.suryavanshi2003@gmail.com",
     "dakshsuryavanshi2003@gmail.com",
+    "dakshrachit11@gmail.com",
+    "qamar@devbroz.com",
     "qamarali9584@gmail.com",
     "yashs9131@gmail.com",
     "mohdazam0453@gmail.com",
+    "stefan.salow@gfa-group.de",
   ].map((e) => e.toLowerCase()),
 );
 

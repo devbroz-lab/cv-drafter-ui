@@ -1,14 +1,15 @@
 import { useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { PublicClientApplication } from "@azure/msal-browser";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { formatApiError } from "../lib/api";
-import { MicrosoftIcon } from "../components/auth/AuthBrandIcons";
 import { GoogleIcon } from "../components/auth/AuthBrandIcons";
-import { GoogleSignInHost, type GoogleSignInHostHandle } from "../components/auth/GoogleSignInHost";
+import {
+  HiddenGoogleSignIn,
+  type HiddenGoogleSignInHandle,
+} from "../components/auth/HiddenGoogleSignIn";
 import { TermsAcceptanceModal } from "../components/auth/TermsAcceptanceModal";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ALLOWLIST_DENIED_MESSAGE, isEmailAllowed, normalizeEmail } from "../lib/allowedEmails";
@@ -18,7 +19,7 @@ import { Card } from "../components/ui";
 const PROMO_FEATURES = [
   "Fast staged flow from extraction to final render",
   "Human approval checkpoints with change history",
-  "Secure access with email, Google, or Microsoft",
+  "Secure access with email or Google",
 ];
 
 const fadeUp = {
@@ -26,21 +27,22 @@ const fadeUp = {
   show: { opacity: 1, y: 0 },
 };
 
+type TermsFlow = "email" | "google" | "read" | null;
+
 export function LoginPage() {
-  const { accessToken, loading, signIn, signInWithGoogle, signInWithMicrosoft } = useAuth();
+  const { accessToken, loading, signIn, signInWithGoogle } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msBusy, setMsBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
-  const [termsOpen, setTermsOpen] = useState(false);
-  const googleSignInRef = useRef<GoogleSignInHostHandle>(null);
+  const [termsFlow, setTermsFlow] = useState<TermsFlow>(null);
+  const [googleSignInReady, setGoogleSignInReady] = useState(false);
+  const googleSignInRef = useRef<HiddenGoogleSignInHandle>(null);
   const reduceMotion = useReducedMotion();
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  const microsoftClientId = import.meta.env.VITE_MICROSOFT_CLIENT_ID;
 
   if (!loading && accessToken) return <Navigate to="/" replace />;
 
@@ -53,12 +55,16 @@ export function LoginPage() {
         transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const },
       };
 
-  async function onSubmit(e: React.FormEvent) {
+  function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isEmailAllowed(email)) {
       toast(ALLOWLIST_DENIED_MESSAGE, "error");
       return;
     }
+    setTermsFlow("email");
+  }
+
+  async function completeEmailSignIn() {
     setBusy(true);
     try {
       await signIn(normalizeEmail(email), password);
@@ -92,44 +98,25 @@ export function LoginPage() {
       );
       return;
     }
-    setTermsOpen(true);
+    setTermsFlow("google");
   }
 
   function onTermsAccepted() {
-    setTermsOpen(false);
-    googleSignInRef.current?.trigger();
-  }
-
-  async function onMicrosoftSignIn() {
-    if (!microsoftClientId) {
-      toast("Microsoft login is not configured (VITE_MICROSOFT_CLIENT_ID).", "error");
+    if (termsFlow === "google") {
+      const opened = googleSignInRef.current?.trigger() ?? false;
+      setTermsFlow(null);
+      if (!opened) {
+        toast(
+          "Google sign-in is still loading. Wait a moment, then click Continue with Google again.",
+          "error",
+        );
+      }
       return;
     }
-    setMsBusy(true);
-    try {
-      const pca = new PublicClientApplication({
-        auth: {
-          clientId: microsoftClientId,
-          authority: "https://login.microsoftonline.com/common",
-          redirectUri: window.location.origin,
-        },
-      });
-      await pca.initialize();
-      const result = await pca.loginPopup({
-        scopes: ["openid", "profile", "email"],
-        prompt: "select_account",
-      });
-      if (!result.idToken) {
-        toast("Microsoft login did not return an ID token.", "error");
-        return;
-      }
-      await signInWithMicrosoft(result.idToken);
-      navigate("/", { replace: true });
-      toast("Signed in with Microsoft.");
-    } catch (err: unknown) {
-      toast(formatApiError(err), "error");
-    } finally {
-      setMsBusy(false);
+
+    if (termsFlow === "email") {
+      setTermsFlow(null);
+      void completeEmailSignIn();
     }
   }
 
@@ -229,34 +216,21 @@ export function LoginPage() {
                 <button
                   type="button"
                   className="auth-page__sso-btn"
-                  disabled={msBusy || googleBusy}
-                  onClick={() => void onMicrosoftSignIn()}
-                >
-                  <MicrosoftIcon />
-                  {msBusy ? "Signing in with Microsoft…" : "Continue with Microsoft"}
-                </button>
-                <button
-                  type="button"
-                  className="auth-page__sso-btn"
-                  disabled={msBusy || googleBusy}
+                  disabled={googleBusy}
                   onClick={onGoogleButtonClick}
                 >
                   <GoogleIcon />
                   {googleBusy ? "Signing in with Google…" : "Continue with Google"}
                 </button>
                 {googleClientId ? (
-                  <GoogleSignInHost
+                  <HiddenGoogleSignIn
                     ref={googleSignInRef}
                     clientId={googleClientId}
+                    onReady={() => setGoogleSignInReady(true)}
                     onError={(message) => toast(message, "error")}
                     onCredential={completeGoogleSignIn}
                   />
                 ) : null}
-                <TermsAcceptanceModal
-                  open={termsOpen}
-                  onClose={() => setTermsOpen(false)}
-                  onAccept={onTermsAccepted}
-                />
               </div>
 
               <p className="auth-page__footer">
@@ -269,6 +243,15 @@ export function LoginPage() {
           </motion.div>
         </div>
       </motion.div>
+
+      <TermsAcceptanceModal
+        open={termsFlow !== null}
+        variant={termsFlow === "read" ? "read" : "accept"}
+        onClose={() => setTermsFlow(null)}
+        onAccept={termsFlow === "read" ? undefined : onTermsAccepted}
+        acceptDisabled={termsFlow === "google" && !googleSignInReady}
+        acceptPendingLabel="Preparing Google sign-in…"
+      />
     </div>
   );
 }

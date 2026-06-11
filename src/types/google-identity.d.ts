@@ -1,5 +1,16 @@
 export {};
 
+type GooglePromptNotification = {
+  isDisplayMoment: () => boolean;
+  isDisplayed: () => boolean;
+  isNotDisplayed: () => boolean;
+  getNotDisplayedReason: () => string;
+  isSkippedMoment: () => boolean;
+  getSkippedReason: () => string;
+  isDismissedMoment: () => boolean;
+  getDismissedReason: () => string;
+};
+
 declare global {
   interface Window {
     google?: {
@@ -8,6 +19,8 @@ declare global {
           initialize: (config: {
             client_id: string;
             callback: (response: { credential?: string }) => void;
+            ux_mode?: "popup" | "redirect";
+            auto_select?: boolean;
           }) => void;
           renderButton: (
             parent: HTMLElement,
@@ -20,6 +33,7 @@ declare global {
               logo_alignment?: string;
             },
           ) => void;
+          prompt: (momentListener?: (notification: GooglePromptNotification) => void) => void;
         };
       };
     };
