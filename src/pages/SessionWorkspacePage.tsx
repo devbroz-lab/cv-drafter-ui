@@ -21,8 +21,10 @@ import {
   startSession,
   submitFieldEdits,
 } from "../lib/api";
+import { useSmoothSessionProgress } from "../hooks/useSmoothSessionProgress";
 import { recentSessionLabel, upsertRecentSession } from "../lib/recentSessions";
 import { livePipelineStageLabel, sessionStatusLabel } from "../lib/sessionStatusLabels";
+import { resolveSessionProgress } from "../lib/utils/sessionProgress";
 import type {
   FieldEditItem,
   FieldEditOutcomeState,
@@ -51,27 +53,6 @@ function pollMsUnlessUnauthorized(
 ): number | false {
   if (error instanceof ApiError && error.status === 401) return false;
   return pollMs(status);
-}
-
-function progressForStatus(status: SessionStatus | undefined): number {
-  switch (status) {
-    case "queued":
-      return 8;
-    case "processing":
-      return 35;
-    case "checkpoint_1_pending":
-      return 52;
-    case "checkpoint_2_pending":
-      return 68;
-    case "checkpoint_3_pending":
-      return 84;
-    case "completed":
-      return 100;
-    case "failed":
-      return 100;
-    default:
-      return 12;
-  }
 }
 
 /** Notes persisted with auto-approved checkpoints (2 & 3). */
@@ -366,7 +347,25 @@ export function SessionWorkspacePage() {
 
   const [cp1Collapsed, setCp1Collapsed] = useState(false);
   const [cp1SelectionLabel, setCp1SelectionLabel] = useState<string | null>(null);
+  const cp1SectionRef = useRef<HTMLDivElement>(null);
+  const prevStatusRef = useRef<SessionStatus | undefined>(undefined);
+  const displayedProgressRef = useRef(8);
   const cp1WorldBank = statusQuery.data?.target_format === "world_bank";
+
+  const targetProgress = useMemo(
+    () =>
+      resolveSessionProgress(manifestQuery.data, st, {
+        manifestLoading: manifestQuery.isLoading || manifestQuery.isFetching,
+        previous: displayedProgressRef.current,
+      }),
+    [manifestQuery.data, manifestQuery.isFetching, manifestQuery.isLoading, st],
+  );
+
+  const smoothProgress = useSmoothSessionProgress(sessionId, targetProgress);
+
+  useEffect(() => {
+    displayedProgressRef.current = smoothProgress;
+  }, [smoothProgress]);
 
   useEffect(() => {
     setCp1Collapsed(false);
@@ -380,6 +379,28 @@ export function SessionWorkspacePage() {
       setCp1SelectionLabel(null);
     }
   }, [st]);
+
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = st;
+    if (st !== "checkpoint_1_pending" || prev === "checkpoint_1_pending" || cp1Collapsed) return;
+
+    const scrollToRoleSelection = () => {
+      cp1SectionRef.current?.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "start",
+      });
+    };
+
+    let timeoutId = 0;
+    const frameId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(scrollToRoleSelection, reduceMotion ? 0 : 120);
+    });
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [st, cp1Collapsed, reduceMotion]);
 
   const fieldEditMut = useMutation({
     mutationFn: (edits: FieldEditItem[]) => submitFieldEdits(accessToken!, sessionId, edits),
@@ -507,7 +528,7 @@ export function SessionWorkspacePage() {
               embedded
               status={st}
               manifest={manifestQuery.data}
-              progressPct={manifestQuery.data?.progress ?? progressForStatus(st)}
+              progressPct={smoothProgress}
               fileLabel={fileLabel}
             />
           </motion.div>
@@ -523,6 +544,8 @@ export function SessionWorkspacePage() {
 
           {st === "checkpoint_1_pending" && (
             <motion.div
+              ref={cp1SectionRef}
+              id="role-selection"
               key="cp1"
               initial={reduceMotion ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}

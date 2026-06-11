@@ -1,10 +1,13 @@
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useMotionValueEvent, useReducedMotion, useSpring } from "framer-motion";
 import clsx from "clsx";
+import { useEffect, useState } from "react";
 
 import { livePipelineStageLabel } from "../../lib/sessionStatusLabels";
 import type { ManifestResponse, SessionStatus } from "../../lib/types";
 import { backendStepLabel } from "../../lib/utils/pipelineManifest";
 import { activePhraseForCurrentStep } from "./pipelineSteps";
+
+const PROGRESS_SPRING = { stiffness: 42, damping: 22, mass: 0.85 };
 
 export function SessionLivePipelineStrip({
   status,
@@ -20,6 +23,17 @@ export function SessionLivePipelineStrip({
   embedded?: boolean;
 }) {
   const reduce = useReducedMotion();
+  const springProgress = useSpring(progressPct, reduce ? { duration: 0 } : PROGRESS_SPRING);
+  const [displayPct, setDisplayPct] = useState(progressPct);
+
+  useEffect(() => {
+    springProgress.set(progressPct);
+  }, [progressPct, springProgress]);
+
+  useMotionValueEvent(springProgress, "change", (value) => {
+    setDisplayPct(Math.round(value));
+  });
+
   const activePhrase = activePhraseForCurrentStep(manifest?.current_step);
   const stepHint = manifest?.current_step ? backendStepLabel(manifest.current_step) : null;
   const stage = activePhrase ?? livePipelineStageLabel(status);
@@ -54,7 +68,7 @@ export function SessionLivePipelineStrip({
           </p>
         </motion.div>
         <motion.div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-          <span className="text-3xl font-medium text-[var(--chat-text,#ececec)]">{progressPct}</span>
+          <span className="text-3xl font-medium text-[var(--chat-text,#ececec)]">{displayPct}</span>
           <span className="text-lg text-[var(--chat-muted,#b4b4b4)]">%</span>
         </motion.div>
       </motion.div>
@@ -66,8 +80,8 @@ export function SessionLivePipelineStrip({
         <motion.div
           className="session-progress-fill h-full rounded-full"
           initial={false}
-          animate={{ width: `${progressPct}%` }}
-          transition={{ duration: reduce ? 0 : 0.7, ease: [0.22, 1, 0.36, 1] }}
+          animate={{ width: `${displayPct}%` }}
+          transition={{ duration: reduce ? 0 : 0.9, ease: [0.22, 1, 0.36, 1] }}
         />
       </motion.div>
     </div>
