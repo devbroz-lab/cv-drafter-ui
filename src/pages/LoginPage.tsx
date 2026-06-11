@@ -96,8 +96,9 @@ export function LoginPage() {
   }
 
   function onTermsAccepted() {
-    setTermsOpen(false);
+    // Trigger while the accept click is still a valid user gesture (required by Google).
     googleSignInRef.current?.trigger();
+    setTermsOpen(false);
   }
 
   async function onMicrosoftSignIn() {
