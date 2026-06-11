@@ -112,7 +112,7 @@ function HighInsightCard({ issue, index }: { issue: HighSeverityIssue; index: nu
             ) : null}
             {issue.solvability === "pipeline" ? (
               <p className="insight-card__hint">
-                Use <strong>Refine in doc</strong> to apply a structured rewrite for this field.
+                Use <strong>Refine with AI</strong> to apply a structured rewrite for this field.
               </p>
             ) : null}
           </motion.div>

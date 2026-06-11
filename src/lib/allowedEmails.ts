@@ -4,6 +4,7 @@ export const ALLOWED_EMAILS = new Set(
   [
     "b.hamid0210@gmail.com",
     "alias.wardakmd@gmail.com",
+    "azam@gmail.com",
     "daksh.suryavanshi2003@gmail.com",
     "dakshsuryavanshi2003@gmail.com",
     "dakshrachit11@gmail.com",
