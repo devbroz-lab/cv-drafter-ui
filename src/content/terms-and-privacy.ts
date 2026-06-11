@@ -4,7 +4,7 @@ const CONTACT_EMAIL =
   (import.meta.env.VITE_CONTACT_EMAIL as string | undefined)?.trim() || "";
 
 const LAST_UPDATED = "June 10, 2026";
-const JURISDICTION = "England and Wales";
+// const JURISDICTION = "England and Wales";
 const DATA_REGION = "the EU";
 
 /** Terms & privacy copy shown before Google sign-in. */
