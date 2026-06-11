@@ -522,6 +522,36 @@
   gap: 0.625rem;
 }
 
+.terms-modal__actions--center {
+  align-items: stretch;
+}
+
+.auth-page__legal {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--chat-muted);
+}
+
+.auth-page__link--inline {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 500;
+  color: var(--chat-accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.auth-page__link--inline:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  opacity: 0.85;
+}
+
 @media (min-width: 480px) {
   .terms-modal__actions {
     flex-direction: row;

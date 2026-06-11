@@ -7,8 +7,12 @@ import { TermsMarkdown } from "./TermsMarkdown";
 type TermsAcceptanceModalProps = {
   open: boolean;
   onClose: () => void;
-  onAccept: () => void;
+  onAccept?: () => void;
   acceptDisabled?: boolean;
+  acceptLabel?: string;
+  acceptPendingLabel?: string;
+  /** `accept` — scroll + accept before continuing. `read` — view only. */
+  variant?: "accept" | "read";
 };
 
 const SCROLL_THRESHOLD_PX = 32;
@@ -18,7 +22,11 @@ export function TermsAcceptanceModal({
   onClose,
   onAccept,
   acceptDisabled = false,
+  acceptLabel = "I accept the terms and conditions",
+  acceptPendingLabel = "Preparing sign-in…",
+  variant = "accept",
 }: TermsAcceptanceModalProps) {
+  const isReadOnly = variant === "read";
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrolledToEnd, setScrolledToEnd] = useState(false);
 
@@ -86,8 +94,9 @@ export function TermsAcceptanceModal({
             Terms and Privacy Policy
           </h2>
           <p className="terms-modal__lead">
-            Please read through the terms below. You can continue with Google after you reach the
-            end.
+            {isReadOnly
+              ? "Please read through our terms and privacy policy below."
+              : "Please read through the terms below. You can continue after you reach the end."}
           </p>
         </header>
 
@@ -101,28 +110,40 @@ export function TermsAcceptanceModal({
         </div>
 
         <footer className="terms-modal__footer">
-          {!scrolledToEnd ? (
-            <p className="terms-modal__hint" aria-live="polite">
-              Scroll to the bottom to accept
-            </p>
-          ) : null}
-          {scrolledToEnd ? (
-            <div className="terms-modal__actions">
-              <button type="button" className="auth-page__sso-btn terms-modal__cancel" onClick={onClose}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="session-btn-primary terms-modal__accept"
-                disabled={acceptDisabled}
-                onClick={onAccept}
-              >
-                {acceptDisabled
-                  ? "Preparing Google sign-in…"
-                  : "I accept the terms and conditions"}
+          {isReadOnly ? (
+            <div className="terms-modal__actions terms-modal__actions--center">
+              <button type="button" className="session-btn-primary terms-modal__accept" onClick={onClose}>
+                Close
               </button>
             </div>
-          ) : null}
+          ) : (
+            <>
+              {!scrolledToEnd ? (
+                <p className="terms-modal__hint" aria-live="polite">
+                  Scroll to the bottom to accept
+                </p>
+              ) : null}
+              {scrolledToEnd ? (
+                <div className="terms-modal__actions">
+                  <button
+                    type="button"
+                    className="auth-page__sso-btn terms-modal__cancel"
+                    onClick={onClose}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="session-btn-primary terms-modal__accept"
+                    disabled={acceptDisabled}
+                    onClick={onAccept}
+                  >
+                    {acceptDisabled ? acceptPendingLabel : acceptLabel}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          )}
         </footer>
       </div>
     </div>,
