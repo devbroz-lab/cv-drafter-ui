@@ -87,7 +87,6 @@ function gizTableToDotPath(
   tableIndex: number,
   rowIndex: number,
   cellIndex: number,
-  cvData?: CVDataLite,
 ): LocatorMappingResult | null {
   switch (tableIndex) {
     case 0: {
@@ -121,19 +120,9 @@ function gizTableToDotPath(
       if (cellIndex !== 1) return null;
       switch (rowIndex) {
         case 0: return { kind: "simple", dotPath: "membership_professional_bodies", confidence: "mapped", label: "Membership in professional bodies" };
-        case 1: {
-          // other_skills is a string[] — render a composite so each element is individually editable.
-          const skills = cvData?.other_skills as string[] | undefined;
-          if (!skills || skills.length === 0) return null;
-          return {
-            kind: "composite", dotPath: "", confidence: "mapped",
-            label: "Skills",
-            options: skills.map((s, n) => ({
-              label: `Skill ${n + 1} — ${truncate(String(s), 40)}`,
-              dotPath: `other_skills[${n}]`,
-            })),
-          };
-        }
+        // other_skills is free text (a single string), handled exactly like
+        // membership_professional_bodies above — a simple scalar cell.
+        case 1: return { kind: "simple", dotPath: "other_skills", confidence: "mapped", label: "Other skills" };
         case 2: return { kind: "simple", dotPath: "present_position", confidence: "mapped", label: "Present position" };
         case 3: return { kind: "simple", dotPath: "years_with_firm",  confidence: "mapped", label: "Years within the firm" };
       }
@@ -403,6 +392,79 @@ function wbTableToDotPath(
 }
 
 // ---------------------------------------------------------------------------
+// WB header / personal-info paragraph mapping
+// ---------------------------------------------------------------------------
+//
+// Unlike GIZ (which renders personal info + skills as tables 0 & 3), the WB
+// template renders the header block as labelled PARAGRAPHS (Name of Staff,
+// Proposed Position, Employer, Date of Birth, Nationality, Professional
+// Membership, IT Skills, Countries of Work Experience). Map each by its label
+// prefix to the CVData scalar path so these fields are editable, matching what
+// GIZ already allows.
+
+const WB_HEADER_FIELD_PATTERNS: Array<{ test: RegExp; dotPath: string; label: string }> = [
+  { test: /^name of staff\b/i,        dotPath: "personal_info.full_name",          label: "Name of staff"        },
+  { test: /^proposed position\b/i,    dotPath: "proposed_position",                label: "Proposed position"    },
+  { test: /^employer\b/i,             dotPath: "employer",                         label: "Employer"             },
+  { test: /^date of birth\b/i,        dotPath: "personal_info.date_of_birth",      label: "Date of birth"        },
+  { test: /^nationality\b/i,          dotPath: "personal_info.nationality",        label: "Nationality"          },
+  { test: /(membership in professional|professional certification or membership)/i,
+                                      dotPath: "membership_professional_bodies",   label: "Membership in professional bodies" },
+  { test: /^it skills\b/i,            dotPath: "other_skills",                     label: "Other skills"         },
+];
+
+/**
+ * Map a WB header paragraph (e.g. "Date of Birth:  …") to its CVData dot-path.
+ *
+ * Scalar header fields → a simple cell. The "Countries of Work Experience"
+ * line renders countries_display (a join of countries_of_experience[].country)
+ * and is mapped to a per-country picker: one option per row, editing that
+ * row's `.country` scalar (a row may itself be a multi-country string grouped
+ * by date range). Returns null when the paragraph is not a WB header field.
+ */
+function wbParagraphToDotPath(
+  text: string,
+  cvData?: CVDataLite,
+): LocatorMappingResult | null {
+  const t = text.trim();
+
+  // Countries of Work Experience — per-country picker (composite).
+  if (/^countries of work experience\b/i.test(t)) {
+    const rows = Array.isArray(cvData?.countries_of_experience)
+      ? (cvData.countries_of_experience as Array<{ country?: string; date_from?: string; date_to?: string }>)
+      : [];
+    const options: CompositeCellOption[] = [];
+    rows.forEach((row, i) => {
+      const country = (row?.country ?? "").trim();
+      if (!country) return; // keep original index; skip empty rows
+      const from = (row?.date_from ?? "").trim();
+      const to = (row?.date_to ?? "").trim();
+      const range = from && to ? ` (${from} – ${to})` : from || to ? ` (${from || to})` : "";
+      options.push({
+        label: `${truncate(country, 48)}${range}`,
+        dotPath: `countries_of_experience[${i}].country`,
+      });
+    });
+    if (options.length === 0) return null;
+    return {
+      kind: "composite",
+      dotPath: "",
+      confidence: "mapped",
+      label: "Countries of work experience",
+      options,
+    };
+  }
+
+  // Scalar header fields.
+  for (const { test, dotPath, label } of WB_HEADER_FIELD_PATTERNS) {
+    if (test.test(t)) {
+      return { kind: "simple", dotPath, confidence: "mapped", label };
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Key qualifications — paragraph clicks vs array indices
 // ---------------------------------------------------------------------------
 //
@@ -424,7 +486,7 @@ export type LocatorToDotPathOptions = {
   docBlocks?: KqDocBlock[];
   /** Scalar body field — often split across multiple Word paragraphs. */
   otherRelevantInfo?: string;
-  /** Full CV data — used for composite cell resolution (other_skills, KQ source). */
+  /** Full CV data — used for KQ source resolution and the WB countries picker. */
   cvData?: CVDataLite;
 };
 
@@ -678,7 +740,7 @@ export function locatorToDotPath(
     const { table_index, row_index, cell_index } = locator;
     const mapped =
       targetFormat === "giz"
-        ? gizTableToDotPath(table_index, row_index, cell_index, options?.cvData)
+        ? gizTableToDotPath(table_index, row_index, cell_index)
         : wbTableToDotPath(table_index, row_index, cell_index);
 
     if (mapped) return mapped;
@@ -695,6 +757,15 @@ export function locatorToDotPath(
   // Paragraph — map to key_qualifications[i] using CV bullet text and/or GIZ
   // section order. Never use raw paragraph_index as the array subscript.
   const text = locator.text_content.trim();
+
+  // WB renders its header/personal-info block as labelled paragraphs (GIZ uses
+  // tables 0 & 3). Resolve those first so they don't fall to the paragraph_N
+  // fallback. WB has no key_qualifications / other_relevant_info sections.
+  if (targetFormat === "world_bank") {
+    const wbHeader = wbParagraphToDotPath(text, options?.cvData);
+    if (wbHeader) return wbHeader;
+  }
+
   const kqList = options?.keyQualifications ?? [];
   let kqIdx: number | null =
     kqList.length > 0 ? matchKeyQualificationIndex(text, kqList) : null;
