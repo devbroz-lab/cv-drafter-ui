@@ -7,7 +7,6 @@ import {
   HiddenGoogleSignIn,
   type HiddenGoogleSignInHandle,
 } from "../components/auth/HiddenGoogleSignIn";
-import { TermsAcceptanceModal } from "../components/auth/TermsAcceptanceModal";
 import { BrandWordmark } from "../components/BrandWordmark";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { Card } from "../components/ui";
@@ -27,8 +26,6 @@ const fadeUp = {
   show: { opacity: 1, y: 0 },
 };
 
-type TermsFlow = "email" | "google" | "read" | null;
-
 export function SignupPage() {
   const { accessToken, loading, signUp, signInWithGoogle } = useAuth();
   const { toast } = useToast();
@@ -37,8 +34,6 @@ export function SignupPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
-  const [termsFlow, setTermsFlow] = useState<TermsFlow>(null);
-  const [googleSignInReady, setGoogleSignInReady] = useState(false);
   const googleSignInRef = useRef<HiddenGoogleSignInHandle>(null);
   const reduceMotion = useReducedMotion();
 
@@ -61,7 +56,7 @@ export function SignupPage() {
       toast(ALLOWLIST_DENIED_MESSAGE, "error");
       return;
     }
-    setTermsFlow("email");
+    void completeEmailSignUp();
   }
 
   async function completeEmailSignUp() {
@@ -98,25 +93,12 @@ export function SignupPage() {
       );
       return;
     }
-    setTermsFlow("google");
-  }
-
-  function onTermsAccepted() {
-    if (termsFlow === "google") {
-      const opened = googleSignInRef.current?.trigger() ?? false;
-      setTermsFlow(null);
-      if (!opened) {
-        toast(
-          "Google sign-in is still loading. Wait a moment, then click Continue with Google again.",
-          "error",
-        );
-      }
-      return;
-    }
-
-    if (termsFlow === "email") {
-      setTermsFlow(null);
-      void completeEmailSignUp();
+    const opened = googleSignInRef.current?.trigger() ?? false;
+    if (!opened) {
+      toast(
+        "Google sign-in is still loading. Wait a moment, then click Continue with Google again.",
+        "error",
+      );
     }
   }
 
@@ -229,7 +211,6 @@ export function SignupPage() {
                   <HiddenGoogleSignIn
                     ref={googleSignInRef}
                     clientId={googleClientId}
-                    onReady={() => setGoogleSignInReady(true)}
                     onError={(message) => toast(message, "error")}
                     onCredential={completeGoogleSignIn}
                   />
@@ -246,15 +227,6 @@ export function SignupPage() {
           </motion.div>
         </div>
       </motion.div>
-
-      <TermsAcceptanceModal
-        open={termsFlow !== null}
-        variant={termsFlow === "read" ? "read" : "accept"}
-        onClose={() => setTermsFlow(null)}
-        onAccept={termsFlow === "read" ? undefined : onTermsAccepted}
-        acceptDisabled={termsFlow === "google" && !googleSignInReady}
-        acceptPendingLabel="Preparing Google sign-in…"
-      />
     </div>
   );
 }
