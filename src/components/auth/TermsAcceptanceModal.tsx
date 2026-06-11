@@ -8,11 +8,17 @@ type TermsAcceptanceModalProps = {
   open: boolean;
   onClose: () => void;
   onAccept: () => void;
+  acceptDisabled?: boolean;
 };
 
 const SCROLL_THRESHOLD_PX = 32;
 
-export function TermsAcceptanceModal({ open, onClose, onAccept }: TermsAcceptanceModalProps) {
+export function TermsAcceptanceModal({
+  open,
+  onClose,
+  onAccept,
+  acceptDisabled = false,
+}: TermsAcceptanceModalProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrolledToEnd, setScrolledToEnd] = useState(false);
 
@@ -108,9 +114,12 @@ export function TermsAcceptanceModal({ open, onClose, onAccept }: TermsAcceptanc
               <button
                 type="button"
                 className="session-btn-primary terms-modal__accept"
+                disabled={acceptDisabled}
                 onClick={onAccept}
               >
-                I accept the terms and conditions
+                {acceptDisabled
+                  ? "Preparing Google sign-in…"
+                  : "I accept the terms and conditions"}
               </button>
             </div>
           ) : null}

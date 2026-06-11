@@ -360,6 +360,23 @@
   opacity: 0.5;
 }
 
+/* Pre-mounted Google button — opened programmatically after terms accept. */
+.auth-page__google-host--prerender {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 60;
+  width: 320px;
+  height: 2.375rem;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0.01;
+  pointer-events: none;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
 .auth-page__sso-btn-face {
   display: inline-flex;
   width: 100%;
@@ -533,14 +550,6 @@
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
-}
-
-.auth-page__google-hint {
-  margin: 0 0 0.5rem;
-  text-align: center;
-  font-size: 0.75rem;
-  line-height: 1.45;
-  color: var(--chat-muted);
 }
 
 .terms-markdown {

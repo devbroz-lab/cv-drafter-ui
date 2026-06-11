@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { motion, useReducedMotion } from "framer-motion";
@@ -8,7 +8,10 @@ import { useToast } from "../contexts/ToastContext";
 import { formatApiError } from "../lib/api";
 import { MicrosoftIcon } from "../components/auth/AuthBrandIcons";
 import { GoogleIcon } from "../components/auth/AuthBrandIcons";
-import { GoogleSsoButton } from "../components/auth/GoogleSsoButton";
+import {
+  HiddenGoogleSignIn,
+  type HiddenGoogleSignInHandle,
+} from "../components/auth/HiddenGoogleSignIn";
 import { TermsAcceptanceModal } from "../components/auth/TermsAcceptanceModal";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ALLOWLIST_DENIED_MESSAGE, isEmailAllowed, normalizeEmail } from "../lib/allowedEmails";
@@ -36,7 +39,8 @@ export function LoginPage() {
   const [msBusy, setMsBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
-  const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
+  const [googleSignInReady, setGoogleSignInReady] = useState(false);
+  const googleSignInRef = useRef<HiddenGoogleSignInHandle>(null);
   const reduceMotion = useReducedMotion();
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -96,8 +100,14 @@ export function LoginPage() {
   }
 
   function onTermsAccepted() {
+    const opened = googleSignInRef.current?.trigger() ?? false;
     setTermsOpen(false);
-    setGoogleTermsAccepted(true);
+    if (!opened) {
+      toast(
+        "Google sign-in is still loading. Wait a moment, then click Continue with Google again.",
+        "error",
+      );
+    }
   }
 
   async function onMicrosoftSignIn() {
@@ -235,34 +245,29 @@ export function LoginPage() {
                   <MicrosoftIcon />
                   {msBusy ? "Signing in with Microsoft…" : "Continue with Microsoft"}
                 </button>
-                {googleTermsAccepted && googleClientId ? (
-                  <>
-                    <p className="auth-page__google-hint">
-                      Terms accepted — tap below to choose your Google account.
-                    </p>
-                    <GoogleSsoButton
-                      clientId={googleClientId}
-                      disabled={msBusy}
-                      busy={googleBusy}
-                      onError={(message) => toast(message, "error")}
-                      onCredential={completeGoogleSignIn}
-                    />
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="auth-page__sso-btn"
-                    disabled={msBusy || googleBusy}
-                    onClick={onGoogleButtonClick}
-                  >
-                    <GoogleIcon />
-                    {googleBusy ? "Signing in with Google…" : "Continue with Google"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="auth-page__sso-btn"
+                  disabled={msBusy || googleBusy}
+                  onClick={onGoogleButtonClick}
+                >
+                  <GoogleIcon />
+                  {googleBusy ? "Signing in with Google…" : "Continue with Google"}
+                </button>
+                {googleClientId ? (
+                  <HiddenGoogleSignIn
+                    ref={googleSignInRef}
+                    clientId={googleClientId}
+                    onReady={() => setGoogleSignInReady(true)}
+                    onError={(message) => toast(message, "error")}
+                    onCredential={completeGoogleSignIn}
+                  />
+                ) : null}
                 <TermsAcceptanceModal
                   open={termsOpen}
                   onClose={() => setTermsOpen(false)}
                   onAccept={onTermsAccepted}
+                  acceptDisabled={!googleSignInReady}
                 />
               </div>
 
