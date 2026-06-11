@@ -62,6 +62,8 @@ export function GoogleSsoButton({
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: handleCredential,
+        ux_mode: "popup",
+        auto_select: false,
       });
       el.innerHTML = "";
       const width = el.parentElement?.clientWidth ?? 320;

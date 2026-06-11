@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { motion, useReducedMotion } from "framer-motion";
@@ -8,7 +8,7 @@ import { useToast } from "../contexts/ToastContext";
 import { formatApiError } from "../lib/api";
 import { MicrosoftIcon } from "../components/auth/AuthBrandIcons";
 import { GoogleIcon } from "../components/auth/AuthBrandIcons";
-import { GoogleSignInHost, type GoogleSignInHostHandle } from "../components/auth/GoogleSignInHost";
+import { GoogleSsoButton } from "../components/auth/GoogleSsoButton";
 import { TermsAcceptanceModal } from "../components/auth/TermsAcceptanceModal";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ALLOWLIST_DENIED_MESSAGE, isEmailAllowed, normalizeEmail } from "../lib/allowedEmails";
@@ -36,7 +36,7 @@ export function LoginPage() {
   const [msBusy, setMsBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
-  const googleSignInRef = useRef<GoogleSignInHostHandle>(null);
+  const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
   const reduceMotion = useReducedMotion();
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -96,9 +96,8 @@ export function LoginPage() {
   }
 
   function onTermsAccepted() {
-    // Trigger while the accept click is still a valid user gesture (required by Google).
-    googleSignInRef.current?.trigger();
     setTermsOpen(false);
+    setGoogleTermsAccepted(true);
   }
 
   async function onMicrosoftSignIn() {
@@ -236,23 +235,30 @@ export function LoginPage() {
                   <MicrosoftIcon />
                   {msBusy ? "Signing in with Microsoft…" : "Continue with Microsoft"}
                 </button>
-                <button
-                  type="button"
-                  className="auth-page__sso-btn"
-                  disabled={msBusy || googleBusy}
-                  onClick={onGoogleButtonClick}
-                >
-                  <GoogleIcon />
-                  {googleBusy ? "Signing in with Google…" : "Continue with Google"}
-                </button>
-                {googleClientId ? (
-                  <GoogleSignInHost
-                    ref={googleSignInRef}
-                    clientId={googleClientId}
-                    onError={(message) => toast(message, "error")}
-                    onCredential={completeGoogleSignIn}
-                  />
-                ) : null}
+                {googleTermsAccepted && googleClientId ? (
+                  <>
+                    <p className="auth-page__google-hint">
+                      Terms accepted — tap below to choose your Google account.
+                    </p>
+                    <GoogleSsoButton
+                      clientId={googleClientId}
+                      disabled={msBusy}
+                      busy={googleBusy}
+                      onError={(message) => toast(message, "error")}
+                      onCredential={completeGoogleSignIn}
+                    />
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="auth-page__sso-btn"
+                    disabled={msBusy || googleBusy}
+                    onClick={onGoogleButtonClick}
+                  >
+                    <GoogleIcon />
+                    {googleBusy ? "Signing in with Google…" : "Continue with Google"}
+                  </button>
+                )}
                 <TermsAcceptanceModal
                   open={termsOpen}
                   onClose={() => setTermsOpen(false)}

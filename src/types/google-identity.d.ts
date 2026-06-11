@@ -19,6 +19,8 @@ declare global {
           initialize: (config: {
             client_id: string;
             callback: (response: { credential?: string }) => void;
+            ux_mode?: "popup" | "redirect";
+            auto_select?: boolean;
           }) => void;
           renderButton: (
             parent: HTMLElement,
